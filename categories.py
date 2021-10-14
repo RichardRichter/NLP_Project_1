@@ -68,17 +68,17 @@ data = load_tweets()
 # Cleaning the tweets by making them alpha and lowercase
 data = make_alpha(data)
 
-# Shortening the tweets to 10 words, which should cover all of the award names
-data = shorten(data)
-
 # Gathering all tweets that match a certain set of regex patterns
 data = match_any(data, patterns_specific)
+
+# Shortening the tweets to 10 words, which should cover all of the award names
+data = shorten(data)
 
 # Gathering a count of all words in the processed tweets
 common = count_words(data)
 
 # Returning the 100 most common words as a list of strings
-common = [word[0] for word in common.most_common(200)]
+common = [word[0] for word in common.most_common(100)]
 
 # Filtering tweets to contain only the most common words
 data = filter_words(common, data)
