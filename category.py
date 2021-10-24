@@ -1,3 +1,16 @@
+import json
+import pickle
+
+def save_tweets(filename = 'tweets', raw_json='gg2013.json'):
+    data = [tweet['text'] for tweet in json.load(open(raw_json))]
+    with open(filename, 'wb') as test:
+        pickle.dump(data,test)
+def load_tweets(num_tweets=-1, filename='tweets'):
+     with open(filename, 'rb') as tweets:
+         data = pickle.load(tweets, encoding = 'utf-8')
+         return data[0:(-1 if num_tweets > len(data) else num_tweets)]
+save_tweets()
+
 class Category:
     def __init__(self, name):
         self.name = name
