@@ -1,0 +1,84 @@
+import re
+
+#. - Any character except new line
+#\d Digit (0-9)
+#\D not a digit (0-9)
+#\w word character (a-z, A-Z, 0-9, _)
+#\W not a word character
+#\s Whitespace (space, tab, newline)
+#\S not whitespace (space, tab, newline)
+#\b Word Boundary (indicated by white space or none alphanumeric symbols)
+# \b would be good for \bpresent
+#\B Not a word boundary
+#^ matches for the beginning of a string the search term has to be at the start
+#$ matches for end of a string, searched item needs to be at the end
+#$ r'a$'
+# using [] means only look for the specific characters in this
+# so [.-] would look for .'s or -'s
+# re.compile(r'[89]00[-.]\d\d\d[-.]\d\d\d\d) 
+#  would look for 800 or 900 numbers only
+# r'[1-5]' using the dash will only look for digits 1 through 5
+# r'[a-zA-Z]' using the dash will only look for letters lowercase or uppercase
+# r'[^a-z] in a charachter set ^ negates and finds anything thats not in this characterset
+
+# | flat line is Either Or
+# () - group
+
+#Quantifiers:
+# * 0 or more
+# + 1 or more
+# ? 0 or one
+# {3} - Exact Number
+# {3,4} - Range of Numbers (minimum, maximum)
+
+# i.e. r'\d{3} will look for three digits
+# r'Mr\.?'\s[A-Z]\w* will match for Mr's with and without the period
+# r'M(r|s|rs) will look up Mr, Ms, or Mrs
+# so I would do presen(t|ted|ts|ing)
+
+
+
+# pattern = re.compile(r'\d\d\d.\d\d\d.\d\d\d\d') would look up phone numbers
+#meta charachters
+
+#^
+#$
+#*
+#+
+#?
+#{}
+#[]
+#\
+#| (flat line)
+# ()
+text_to_search = '''abcdefghijklmnopqrstuvwxzy 
+ABCDEFGHIJLMNOPQRSTUVWXYZ
+1234567890 
+Ha Haha
+MetaCharacters (need to be escaped): 
+. ^ $ * + ? { } [ ] \ | ( ) 
+coreyms.com
+321-555-4321
+123.555.1234
+Mr. Schafer
+Mr Smith
+Ms Davis
+Mrs. Robinson
+Mr. T
+'''
+sentence = 'Start a sentence and then bring it to an end'
+#raw string: prefixed with r. they allow \'s to not be considered string
+#its going to interpret the string literally'
+print("\tTab")
+#vs
+print(r"\tTab")
+
+pattern = re.compile(r'\bHa') #this is a pattern of literal charachters
+matches = pattern.finditer(text_to_search) #finditer goes through a string to print out matches
+
+for match in matches:
+    print(match)
+#output is <re.Match object; span=(0,3), match='abc'
+#the span is the match index
+
+print(matches)
