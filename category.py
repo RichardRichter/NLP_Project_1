@@ -1,5 +1,7 @@
 import json
 import pickle
+import spacy
+import re
 
 def save_tweets(filename = 'tweets', raw_json='gg2013.json'):
     data = [tweet['text'] for tweet in json.load(open(raw_json))]
@@ -58,3 +60,5 @@ category_list = [picture_drama,picture_musical_or_comedy,picture_director,pictur
                  tv_miniseries_actor_supporting,tv_miniseries_actress_supporting]
 for cat in category_list:
     print(cat.keywords)
+    
+
