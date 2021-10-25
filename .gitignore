@@ -1,3 +1,9 @@
 .DS_STORE
 __pycache__
+*.sublime-project
+*.sublime-workspace
 *.json
+2013answers.json
+2015answers.json
+gg2013.json
+gg2015.json
