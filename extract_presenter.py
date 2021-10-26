@@ -34,12 +34,11 @@ class Category:
         # print(len(self.relevant_tweets))
         nlp = spacy.load("en_core_web_sm", disable=['tok2vec', 'tagger', 'parser', 'attribute_ruler', 'lemmatizer'])
         ppl = {}
-        pattern_better = re.compile(r'\bpresent\b')
+        pattern_better = re.compile(r'\b(presents|presenting|presenter|presenters|announce|announces|announced)\b')
         pattern_worse = re.compile(r'\bannounced\b|\bintroduced\b')
         for tweet in self.relevant_tweets:
-            print(tweet) 
             #YOUR PROBLEM IS THIS STUPID TRUE FALSE STATEMENT
-            if pattern_better.test(tweet):
+            if pattern_better.search(tweet):
                 print("match tweet")
                 print(tweet)
                 text = nlp(tweet)
@@ -51,16 +50,17 @@ class Category:
                             ppl[person] = ppl[person]+1
                         else:
                             ppl[person] = 1      
-            #second_match = re.finditer(pattern_worse, tweet)
-            #if second_match:
-             #   text = nlp(tweet)
-              #  for word in text.ents:
-               #     if word.label_ == 'PERSON':
-                #        person = word.text
-                 #       if person in ppl:
-                  #          ppl[person] = ppl[person]+1
-                   #     else:
-                    #        ppl[person] = 1
+#            if pattern_worse.search(tweet):
+#                print("match tweet")
+#                print(tweet)
+#                text = nlp(tweet)
+#                for word in text.ents:
+#                    if word.label_ == 'PERSON':
+#                        person = word.text
+#                        if person in ppl:
+#                            ppl[person] = ppl[person]+1
+#                        else:
+#                            ppl[person] = 1
                 
         if len(ppl) !=0:
             sorted_dict = sorted([(value, key) for (key, value) in ppl.items()])
@@ -122,29 +122,29 @@ tv_miniseries_actress = Category("Best Performance by an Actress In A Mini-serie
 tv_miniseries_actor_supporting = Category("Best Performance by an Actor in a Supporting Role in a Series, Mini-Series or Motion Picture Made for Television")
 tv_miniseries_actress_supporting = Category("Best Performance by an Actress in a Supporting Role in a Series, Mini-Series or Motion Picture Made for Television")
 
-#tv_miniseries_actor.find_presenter()
-#tv_actress_comedy.find_presenter()
-#tv_miniseries_actor_supporting.find_presenter()
+tv_miniseries_actor.find_presenter()
+tv_actress_comedy.find_presenter()
+tv_miniseries_actor_supporting.find_presenter()
 picture_director.find_presenter()
-#tv_miniseries_actress.find_presenter()
-#tv_miniseries.find_presenter()
-#picture_actress_drama.find_presenter()
-#picture_actor_drama.find_presenter()
-#picture_animated.find_presenter()
-#picture_actor_supporting.find_presenter()
+tv_miniseries_actress.find_presenter()
+tv_miniseries.find_presenter()
+picture_actress_drama.find_presenter()
+picture_actor_drama.find_presenter()
+picture_animated.find_presenter()
+picture_actor_supporting.find_presenter()
 picture_cecil.find_presenter()
-#tv_comedy.find_presenter()
-#picture_actress_comedy.find_presenter()
-#tv_actress_drama.find_presenter()
-#picture_actress_supporting.find_presenter()
+tv_comedy.find_presenter()
+picture_actress_comedy.find_presenter()
+tv_actress_drama.find_presenter()
+picture_actress_supporting.find_presenter()
 picture_actor_comedy.find_presenter()
-#tv_actor_drama.find_presenter()
-#tv_drama.find_presenter()
-#picture_musical_or_comedy.find_presenter()
-#tv_actor_comedy.find_presenter()
-#picture_score.find_presenter()
+tv_actor_drama.find_presenter()
+tv_drama.find_presenter()
+picture_musical_or_comedy.find_presenter()
+tv_actor_comedy.find_presenter()
+picture_score.find_presenter()
 picture_song.find_presenter()
-#picture_screen_play.find_presenter()
-#tv_miniseries_actress_supporting.find_presenter()
-#picture_drama.find_presenter()
-#picture_foreign.find_presenter()
+picture_screen_play.find_presenter()
+tv_miniseries_actress_supporting.find_presenter()
+picture_drama.find_presenter()
+picture_foreign.find_presenter()
