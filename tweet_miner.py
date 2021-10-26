@@ -2,17 +2,19 @@ import sys
 import spacy
 from spacy import displacy
 import extraction
+import category
 from category import Category
+import host_extract
+import json
 
 # Super Important Values To Parameterize
-YEAR = 2013
+YEAR = 2015
 NUM_AWARDS = 25
 
 
 def main():
     # extract tweets
-    # extraction.save_tweets()
-    categories = []
+    extraction.save_tweets(raw_json='gg'+str(YEAR)+'.json')
     # run nathan's code to extract categories
     picture_drama = Category("Best Motion Picture - Drama")
     picture_musical_or_comedy = Category("Best Motion Picture - Musical or Comedy")
@@ -56,25 +58,45 @@ def main():
 
     tweets = extraction.load_tweets()
     for tweet in tweets:
-        for cat in categories:
-            match_score = cat.match_score (tweet)
-            if match_score >= 0.8:
-                cat.relevant_tweets.append(tweet)
-                break
+        for i in range(len(categories)):
+            cat = categories[i]
+            match_score = cat.match_score(tweet.lower())
+            if match_score >= 0.9:
+                is_relevant = True
+                if not cat.person:
+                    for word in category.person_words:
+                        if word in tweet.lower():
+                            is_relevant = False
+                if is_relevant:
+                    cat.relevant_tweets.append(tweet)
+                    break
             elif match_score >= 0.5:
                 cat.other_tweets.append(tweet)
 
-    counter = 1
+    # counter = 1
+    # for cat in categories:
+    #     file_name = 'category' + str(counter) + '.txt'
+    #     with open(file_name, mode='w', encoding='utf-8') as f:
+    #         f.write(cat.name + ' Tweets' + ':\n')
+    #         for tweet in cat.relevant_tweets:
+    #             f.write(tweet + '\nNEW TWEET\n')
+    #
+    #     counter += 1
+
+    overall_dict = dict()
+    # find the hosts first
+    overall_dict['hosts'] = host_extract.find_host(tweets)
+    overall_dict['award_data'] = {}
+    # make each category find its presenters, nominees, and winners
     for cat in categories:
-        file_name = 'category' + str(counter) + '.txt'
-        with open(file_name, mode='w', encoding='utf-8') as f:
-            f.write(cat.name + ' Tweets' + ':\n')
-            for tweet in cat.relevant_tweets:
-                f.write(tweet + '\nNEW TWEET\n')
+        cat.find_presenter()
+        cat.extract_nominees()
+        cat.find_winner()
+        overall_dict['award_data'][cat.name] = cat.output_self()
 
-        counter += 1
+    output_file = open(str(YEAR)+'results.json', 'w', encoding='utf-8')
+    json.dump(overall_dict, output_file)
 
-    print("done")
 
 if __name__ == "__main__":
     main()
