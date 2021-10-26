@@ -37,13 +37,10 @@ class Category:
         pattern_better = re.compile(r'\b(presents|presenting|presenter|presenters|announce|announces|announced)\b')
         pattern_worse = re.compile(r'\bannounced\b|\bintroduced\b')
         for tweet in self.relevant_tweets:
-            #YOUR PROBLEM IS THIS STUPID TRUE FALSE STATEMENT
             if pattern_better.search(tweet):
                 #print(tweet)
-                #potential_names = []
                 cap = (tweet.index(pattern_better.search(tweet).group(0)))
                 #print(cap)
-                #potential_names.append(tweet[cap-1:])
                 #for x in range (cap, -1,-1):
                 #    potential_names.append(tweet[x:cap])
                 sub_section_tweet = tweet[:cap]
