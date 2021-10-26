@@ -39,17 +39,23 @@ class Category:
         for tweet in self.relevant_tweets:
             #YOUR PROBLEM IS THIS STUPID TRUE FALSE STATEMENT
             if pattern_better.search(tweet):
-                print("match tweet")
-                print(tweet)
-                text = nlp(tweet)
-                print(text)
+                #print(tweet)
+                #potential_names = []
+                cap = (tweet.index(pattern_better.search(tweet).group(0)))
+                #print(cap)
+                #potential_names.append(tweet[cap-1:])
+                #for x in range (cap, -1,-1):
+                #    potential_names.append(tweet[x:cap])
+                sub_section_tweet = tweet[:cap]
+                #print(sub_section_tweet)
+                text = nlp(sub_section_tweet)
                 for word in text.ents:
                     if word.label_ == 'PERSON':
                         person = word.text
                         if person in ppl:
                             ppl[person] = ppl[person]+1
                         else:
-                            ppl[person] = 1      
+                            ppl[person] = 1 
 #            if pattern_worse.search(tweet):
 #                print("match tweet")
 #                print(tweet)
@@ -77,8 +83,7 @@ class Category:
                 else:
                     keep_searching = False
                 presenter_index += 1
-            print(sorted_dict)
-            print('\n')
+            print(presenters)
         else:
             print("NA")
         #print(count)
