@@ -18,15 +18,16 @@ class CategoryExtractor():
 			self.phrase = ' '.join(self.words)
 
 			# Scores in reference to role, medium, or genre determination
-			self.r = 0.0
-			self.m = 0.0
-			self.g = 0.0
+			self.r = 0
+			self.m = 0
+			self.g = 0
 
 			# Other scores, continually reset as metrics are tested
 			self.scores = [engram[1]]
+			self.freq = 0
 
 		def __str__(self):
-			return f"({self.phrase} | r:{self.r}, m:{self.m}, g:{self.g})"
+			return f"({self.phrase} | r:{self.r}, m:{self.m}, g:{self.g} | freq:{self.freq})"
 
 		def __repr__(self):
 			return str(self)
@@ -52,32 +53,48 @@ class CategoryExtractor():
 
 
 	# Find components that correspond to genres
-	def find_genres(self, use_alternate=False):
+	def find_genres(self, use_alternate=False, limit=4):
 		exact = self.tweet_filter_precise()[0]
-		engrams = self.get_ngrams(exact)
+		engrams = self.get_ngrams(exact, limit)
 		components = []
 
 		endings = Counter([tweet.split()[-1] for tweet in exact]).most_common(20)
 
 		# Taking ngrams with 2, 3, or 4 words, and finding those that dont begin with best. There are more likely to be genres because they are at the end.
-		for n in [2,3,4]:
-			components += [self.Component(engram) for engram in engrams[n].most_common(20) if engram[0][0] not in ['best', 'or'] and engram[0][-1] != 'or']
+		for n in range(2, limit + 1):
+			components += [self.Component(engram) for engram in engrams[n].most_common(50) if engram[0][0] not in ['or'] and engram[0][-1] != 'or']
 
 		# Checking whether a component terminates at the end of the tweet
 		for component in components:
-			component.scores = [0, 0]
+			cstart = component.words[0]
+			cend = component.words[-1]
+			component.scores = [0, 0, 0]
 			for tweet in exact:
+				words = tweet.split()
+				tstart = words[0]
+				tend = words[-1]
 				if component.phrase in tweet:
-					if component.words[-1] == tweet.split()[-1]:
-						component.scores[1] += 1
+					component.freq += 1
+					if cstart == tstart and cend != tend:
+						component.r += 2
+						component.m += 1
+						component.g -= 2
+					elif cstart != tstart and cend == tend:
+						component.r -= 2
+						component.m += 1
+						component.g += 2
 					else:
-						component.scores[0] += 1
+						component.r -= 1
+						component.m += 2
+						component.g -= 1
 
 
 		# Scoring each component based on a combined metric of how many times it showed up and the proportion of appearances at the end
+
+		'''
 		for component in components:
 			if use_alternate:
-				component.scores = (component.scores[1] * 0.1) + (component.scores[1] * (component.scores[1] / (sum(component.scores) + 1)))
+				component.scores = (component.scores[1] * 0.3) + (component.scores[1] * (component.scores[1] / (sum(component.scores) + 1)))
 			else:
 				component.scores = (component.scores[1] - component.scores[0])
 
@@ -90,7 +107,19 @@ class CategoryExtractor():
 		# Sorting the components by their genre probability scores
 		components.sort(reverse=True, key = lambda x: x.g)
 		print(endings)
-		return components
+		'''
+
+		components = [component for component in components if component.freq > 4]
+
+		components.sort(reverse=True, key=lambda x: x.r)
+		roles = components[:5]
+		components.sort(reverse=True, key=lambda x: x.m)
+		mediums = components[:5]
+		components.sort(reverse=True, key=lambda x: x.g)
+		genres = components[:5]
+
+
+		return roles, mediums, genres
 
 
 	# Returns a list of n categories, ordered by highest probability
@@ -259,7 +288,7 @@ class CategoryExtractor():
 
 	# Given a set of tweets, returns a dicitonary containing all of the ngrams for each length n, where n is the set of dictionary keys
 	@staticmethod
-	def get_ngrams(tweets):
+	def get_ngrams(tweets, limit=None):
 
 		# Initialization
 		engrams = {}
@@ -267,7 +296,7 @@ class CategoryExtractor():
 		result = [None]
 	
 		# Continue building a dictionary of ngrams until we no longer get any results
-		while result:
+		while result and n <= limit:
 			result = []
 			for tweet in tweets:
 				for gram in ngrams(tweet.split(), n): result.append(gram)
@@ -281,18 +310,42 @@ class CategoryExtractor():
 class Category():
 
 	def __init__(self, medium, role=None, genre=None):
-		self.title = title
+
+		# Initialization
+		self.role = role
 		self.medium = medium
 		self.genre = genre
+
+		# Score representing the probability of this category
 		self.score = 0
 
 
+	# Output to a string that is serviceable for providing answers
 	def __str__(self):
-		pass
+		if self.medium and self.role and self.genre:
+			return f'best performance by an {self.role} in a {self.medium} - {self.genre}'
+		elif not self.role:
+			return f'best {self.medium} - {self.genre}'
+		else:
+			return f'best {self.role} - {self.medium}'
 
 
-x = CategoryExtractor(load_tweets())
-print(x.find_genres(use_alternate=True))
+real_categories = [
+	Category('motion picture', 'screenplay'),
+	Category('motion picture', 'director'),
+	Category('television series', 'actress', 'comedy or musical'),
+	Category('film', 'foreign language'),
+	Category('motion picture', 'supporting actor')
+]
+
+
+x = CategoryExtractor(load_tweets('2015tweets'))
+y = x.find_genres(use_alternate=False)
+for x in y:
+	print()
+	for z in x:
+		print(z)
 
 
 #for answer in load_answers(): print(answer)
+#for category in real_categories: print(category)
