@@ -53,7 +53,7 @@ class CategoryExtractor():
 		self.genres = []
 
 
-	def determine_components(self):
+	def categorize_components(self):
 
 		# Resetting
 		self.roles = []
@@ -77,8 +77,8 @@ class CategoryExtractor():
 		self.genres.sort(reverse=True, key=lambda g: g.g)
 
 
-	# Find components that correspond to genres
-	def score_components(self, tweets=None, limit=4):
+	# Score components based on a set of tweets
+	def score_components(self, tweets, limit=4):
 
 		#Getting the ngrams
 		engrams = self.get_ngrams(tweets, limit)
@@ -153,7 +153,20 @@ class CategoryExtractor():
 
 	# Using the existing roles, mediums, and genres, extrapolates novel possible categories
 	def extrapolate(self):
-		pass
+		for medium in self.mediums:
+			for role in self.mediums:
+				cat = Category(medium, role)
+				if cat not in self.categories:
+					self.categories.append(cat)
+				for genre in self.genres:
+					cat = Category(medium, role, genre)
+					if cat not in self.categories:
+						self.categories.append(cat)
+			for genre in self.genres:
+				cat = Category(medium, genre)
+				if cat not in self.categories:
+					self.categories.append(cat)
+		
 
 	# Returns some metrics about the accuracy of the model
 	def get_acc(self):
@@ -350,6 +363,15 @@ class Category():
 		else:
 			return f'best {self.role} - {self.medium}'
 
+	def __eq__(self, other):
+
+		# Check class of comparison
+		if not isinstance(other, Category):
+			return NotImplemented
+
+		# All elements of the category must be equal
+		return self.role = other.role and self.medium = other.medium and self.genre = other.genre
+
 
 real_categories = [
 	Category('motion picture', 'screenplay'),
@@ -368,7 +390,6 @@ print()
 for z in x.mediums: print(z)
 print()
 for z in x.genres: print(z)
-print('\n', x.components)
 
 
 #for answer in load_answers(): print(answer)
