@@ -1,19 +1,22 @@
 import re
 import spacy
 from spacy import displacy
+import rapidfuzz
 
 
 # GLOBAL VARIABLES (SAME FOR EVERY CATEGORY)
 person_words = ['actor', 'director', 'actress']
-stop_words = ['-', 'in', 'a', 'by', 'an', 'or', 'made', 'for']
+stop_words = ['-', 'in', 'a', 'by', 'an', 'or', 'made', 'for', 'performance', 'role', 'series']
 patterns_after = [
     r'.*\b(best\b.*) goes to [^a-z]*([a-z0-9 -]*)[!#.?\x28]', r'.*\b(best\b.*) awarded to [^a-z]*([a-z0-9 -]*)[!#.?]',
     r'.*\b(best\b.*) won by [^a-z]*([a-z0-9 -]*)[!#.?]', r'.*\b(best\b.*): [^a-z]*([a-z0-9 -]*)[!#.?]',
     r'.*\b(best\b.*) - ([a-z0-9 ]*) - #goldenglobes', r'.*\b(best\b.*) - [a-z ]* - ([a-z0-9 ]*)[!#.?\x28]']
 
-patterns_before = patterns_specific = \
+patterns_before = \
     [r'(.*\b) nominated for (best\b.*)', r'(.*\b) w[io]ns? (best\b.*)', r'(.*\b) awarded (best\b.*)',
      r'(.*\b) awarded the (best\b.*)', r'(.*\b) winner of (best\b.*)', r'to ([a-z0-9 -]*) for winning best\b.*']
+
+buzz_words = ['nom', 'won', 'win', 'goes to', 'awarded', 'best']
 
 
 class Category:
@@ -119,8 +122,78 @@ class Category:
         else:
             self.extract_nonpeople_nominees()
 
+    # relies heavily on spacy
     def extract_people_nominees(self):
-        self.nominees = []
+        nlp = spacy.load("en_core_web_sm", disable=['tok2vec', 'tagger', 'parser', 'attribute_ruler', 'lemmatizer'])
+        ppl = {}
+        for tweet in self.relevant_tweets:
+            if any(word in tweet.lower() for word in buzz_words):
+                new_nominees = True
+                for key in ppl:
+                    if key in tweet.lower():
+                        ppl[key] += 1
+                        new_nominees = False
+                if new_nominees:
+                    text1 = nlp(tweet)
+                    # this assigns a label to every word/set of words in the sentence if possible
+                    for word in text1.ents:
+                        # ignore all other words that have labels that aren't people
+                        if word.label_ == 'PERSON':
+                            person = word.text
+                            # remove links
+                            person = re.sub(r'https?:\/\/.*[\r\n]*', '', person, flags=re.MULTILINE)
+                            # remove # and @
+                            person = person.replace('#', '')
+                            person = person.replace('@', '')
+                            if ' - ' in person:
+                                person = person[:person.index(' - ')]
+                            person = person.strip().lower()
+                            if self.rev_score(person) <= 0.25:
+                                # ignore irregular names like firstlast or Golden Globes
+                                if " " in person and "golden" not in person.lower():
+                                    # this usually means retweet @twitteruser and those aren't people!
+                                    if person[:2] != 'rt':
+                                        # very simple data cleaning to remove 's from the end of some names
+                                        if person[-2:] == "'s":
+                                            person = person[:-2]
+                                        # this person already exists in the dictionary, so just increment the count
+                                        if person in ppl:
+                                            ppl[person] = ppl[person] + 1
+                                        # add the person to the dictionary
+                                        else:
+                                            ppl[person] = 1
+
+        sorted_dict = sorted([(value, key) for (key, value) in ppl.items()])
+        sorted_dict.sort(reverse=True)
+        if len(sorted_dict) > 0:
+            # think of this as a new ppl
+            filtered_dict = {}
+            # when we reach this index in sorted_dict, we know its not an unique name so we can ignore it
+            ignore_list = []
+            # sorted_dict is sorted so highest votes and therefore most accurate names appear first
+            # THIS FACT IS SUPER IMPORTANT AND THE REASON WHY THIS WORKS
+            for i in range(len(sorted_dict)):
+                if i not in ignore_list:
+                    (count1, person1) = sorted_dict[i]
+                    # first time the unique person appears in new ppl dict so we add it in
+                    if person1 not in filtered_dict:
+                        filtered_dict[person1] = count1
+                    for j in range(i + 1, len(sorted_dict)):
+                        (count2, person2) = sorted_dict[j]
+                        # this checks if person1 and person2 share more than 80% similarity ignoring random add-ons
+                        # AKA Argo and Argo Deez Nuts will have 100% similarity
+                        if rapidfuzz.fuzz.partial_ratio(person1, person2) > 80:
+                            # person1 is most likely the correct version of the name
+                            # ignore person2 when it becomes i in the loop
+                            ignore_list.append(j)
+                            if person1 in filtered_dict:
+                                # add person2's votes to person1 because they refer to the same unique person
+                                filtered_dict[person1] = filtered_dict[person1] + count2
+
+            # sorted_dict should now have filtered out the same people but with typos in their name
+            sorted_dict = sorted([(value, key) for (key, value) in filtered_dict.items()])
+            sorted_dict.sort(reverse=True)
+            self.nominees = sorted_dict
 
     # function if Category is not a person category (nlp package won't be as helpful)
     def extract_nonpeople_nominees(self):
