@@ -152,21 +152,27 @@ class CategoryExtractor():
 		return [str(category) for category in self.answers(n)]
 
 	# Using the existing roles, mediums, and genres, extrapolates novel possible categories
-	def extrapolate(self):
-		for medium in self.mediums:
-			for role in self.mediums:
+	def extrapolate(self, limit=5):
+		initial = len(self.categories)
+		new = []
+		for medium in self.mediums[:limit]:
+			for role in self.roles[:limit]:
 				cat = Category(medium, role)
 				if cat not in self.categories:
+					new.append(cat)
 					self.categories.append(cat)
-				for genre in self.genres:
+				for genre in self.genres[:limit]:
 					cat = Category(medium, role, genre)
 					if cat not in self.categories:
+						new.append(cat)
 						self.categories.append(cat)
-			for genre in self.genres:
+			for genre in self.genres[:limit]:
 				cat = Category(medium, genre)
 				if cat not in self.categories:
+					new.append(cat)
 					self.categories.append(cat)
 		
+		return new, len(self.categories) - initial
 
 	# Returns some metrics about the accuracy of the model
 	def get_acc(self):
@@ -353,6 +359,12 @@ class Category():
 		# Score representing the probability of this category
 		self.score = 0
 
+	def __repr__(self):
+		r = self.role.phrase if self.role else ''
+		m = self.medium.phrase if self.medium else ''
+		g = self.genre.phrase if self.genre else ''
+		return f'{r} | {m} | {g}'
+
 
 	# Output to a string that is serviceable for providing answers
 	def __str__(self):
@@ -370,7 +382,7 @@ class Category():
 			return NotImplemented
 
 		# All elements of the category must be equal
-		return self.role = other.role and self.medium = other.medium and self.genre = other.genre
+		return self.role == other.role and self.medium == other.medium and self.genre == other.genre
 
 
 real_categories = [
@@ -383,13 +395,15 @@ real_categories = [
 
 
 x = CategoryExtractor(load_tweets('2013tweets'))
-for t in [x.tweet_filter_precise()[1]]: x.score_components(t)
-x.determine_components()
+for t in x.tweet_filter_precise(): x.score_components(t)
+x.categorize_components()
 for z in x.roles: print(z)
 print()
 for z in x.mediums: print(z)
 print()
 for z in x.genres: print(z)
+print()
+print(x.extrapolate())
 
 
 #for answer in load_answers(): print(answer)
