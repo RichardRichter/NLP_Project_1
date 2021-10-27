@@ -359,11 +359,14 @@ class Category():
 		# Score representing the probability of this category
 		self.score = 0
 
+		# Bool representing whether or not components overlap
+		self.unique, self.overlaps = self.verify_integrity()
+
 	def __repr__(self):
 		r = self.role.phrase if self.role else ''
 		m = self.medium.phrase if self.medium else ''
 		g = self.genre.phrase if self.genre else ''
-		return f'{r} | {m} | {g}'
+		return f'({r} | {m} | {g})'
 
 
 	# Output to a string that is serviceable for providing answers
@@ -385,13 +388,34 @@ class Category():
 		return self.role == other.role and self.medium == other.medium and self.genre == other.genre
 
 
-real_categories = [
-	Category('motion picture', 'screenplay'),
-	Category('motion picture', 'director'),
-	Category('television series', 'actress', 'comedy or musical'),
-	Category('film', 'foreign language'),
-	Category('motion picture', 'supporting actor')
-]
+	# Ensures that category components are non-overlapping
+	def verify_integrity(self):
+
+		#Initialization
+		unique = True
+		overlaps = False
+		components = [c for c in [self.role, self.medium, self.genre] if c is not None]
+
+		# Determine whether or not all components are unique
+		phrases = [c.phrase for c in components]
+		for i, phrase in enumerate(phrases):
+			others = phrases[:]
+			others.pop(i)
+			for other in others:
+				if phrase in other:
+					unique = False
+					break
+
+		# Deterimine whether any word overlap exists between components
+		words = []
+		for c in components:
+			for w in c.words:
+				words.append(w)
+		counts = Counter(words)
+		overlaps = counts.most_common(1)[0][1] > 1
+
+		return unique, overlaps
+
 
 
 x = CategoryExtractor(load_tweets('2013tweets'))
@@ -403,7 +427,9 @@ for z in x.mediums: print(z)
 print()
 for z in x.genres: print(z)
 print()
-print(x.extrapolate())
+x.extrapolate()
+
+print([c for c in x.categories if not c.overlaps])
 
 
 #for answer in load_answers(): print(answer)
