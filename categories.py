@@ -1,197 +1,298 @@
 import spacy
 import re
 import string
+from nltk import ngrams
 from collections import Counter
 from extraction import load_tweets, load_answers
 
-# Class representing a category
+# Class that extracts potential categories from a set of tweets
+class CategoryExtractor():
+
+	# A class representing a potential component of an award category
+	class Component():
+
+		def __init__(self, engram):
+
+			# Text components of the ngram
+			self.words = [word for word in engram[0]]
+			self.phrase = ' '.join(self.words)
+
+			# Scores in reference to role, medium, or genre determination
+			self.r = 0.0
+			self.m = 0.0
+			self.g = 0.0
+
+			# Other scores, continually reset as metrics are tested
+			self.scores = [engram[1]]
+
+		def __str__(self):
+			return f"({self.phrase} | r:{self.r}, m:{self.m}, g:{self.g})"
+
+		def __repr__(self):
+			return str(self)
+
+
+	def __init__(self, tweets):
+		# Cleaning the tweets
+		self.tweets = self.remove_hashtags(self.make_alpha(tweets))
+
+		# Regex patterns for grabbing text, ordered by level of precision
+		self.patterns = {
+			"exact": [r'.*\b(best\b.*) goes to\b.*', r'.*\b(best\b.*) awarded to\b.*', r'.*\b(best\b.*) won by\b.*'],
+			"specific": [r'.*\bnominated for (best\b.*)', r'.*\bw[io]ns? (best\b.*)', r'.*\bawarded (best\b.*)', r'.*\baward for (best\b.*)', r'.*\bawarded the (best\b.*)', r'.*\bwinner of (best\b.*)', r'.*\b(best\b.*)goes to\b.*', r'.*\b(best\b.*)awarded to\b.*', r'.*\b(best\b.*)won by\b.*'],
+			"ambiguous": [r'.*\b(best\b.*)']
+		}
+
+		# Other Initialization
+		self.components = []
+		self.categories = []
+		self.roles = []
+		self.mediums = []
+		self.genres = []
+
+
+	# Find components that correspond to genres
+	def find_genres(self, use_alternate=False):
+		exact = self.tweet_filter_precise()[0]
+		engrams = self.get_ngrams(exact)
+		components = []
+
+		endings = Counter([tweet.split()[-1] for tweet in exact]).most_common(20)
+
+		# Taking ngrams with 2, 3, or 4 words, and finding those that dont begin with best. There are more likely to be genres because they are at the end.
+		for n in [2,3,4]:
+			components += [self.Component(engram) for engram in engrams[n].most_common(20) if engram[0][0] not in ['best', 'or'] and engram[0][-1] != 'or']
+
+		# Checking whether a component terminates at the end of the tweet
+		for component in components:
+			component.scores = [0, 0]
+			for tweet in exact:
+				if component.phrase in tweet:
+					if component.words[-1] == tweet.split()[-1]:
+						component.scores[1] += 1
+					else:
+						component.scores[0] += 1
+
+
+		# Scoring each component based on a combined metric of how many times it showed up and the proportion of appearances at the end
+		for component in components:
+			if use_alternate:
+				component.scores = (component.scores[1] * 0.1) + (component.scores[1] * (component.scores[1] / (sum(component.scores) + 1)))
+			else:
+				component.scores = (component.scores[1] - component.scores[0])
+
+		# Normalizing scores between -1 and 1
+		components.sort(reverse=True, key = lambda x: x.scores)
+		best = components[0]
+		for component in components:
+			component.g = round(component.scores / best.scores, 3)
+
+		# Sorting the components by their genre probability scores
+		components.sort(reverse=True, key = lambda x: x.g)
+		print(endings)
+		return components
+
+
+	# Returns a list of n categories, ordered by highest probability
+	def answers(self, n=27):
+		return []
+
+	# Returns a list of n categories as strings, ordered by highest probability
+	def str_answers(self, n=27):
+		return [str(category) for category in self.answers(n)]
+
+	# Using the existing roles, mediums, and genres, extrapolates novel possible categories
+	def extrapolate(self):
+		pass
+
+	# Returns some metrics about the accuracy of the model
+	def get_acc(self):
+		answers = load_answers()
+		preds = self.str_answers()
+		correct = []
+		missed = []
+		false = []
+		for answer in answers:
+			if answer in preds:
+				correct.append(answer)
+			else:
+				missed.append(answer)
+
+		for pred in preds:
+			if pred not in answers:
+				false.append(answer)
+
+		accuracy = len(correct) / len(answers)
+
+		return accuracy, correct, missed, false
+
+	# Takes in a list of strings, returns a list of strings containing only alpha characters [a-z]
+	@staticmethod
+	def make_alpha(tweets):
+		return [re.sub(r'[^a-z -#]+', '', text.lower()) for text in tweets]
+
+	# Reduce the number of words in each tweet (the beginning words should contain the award name)
+	@staticmethod
+	def shorten(tweets, limit=10):
+		result = []
+		for tweet in tweets:
+			words = tweet.split(' ')
+			short = ' '.join(words[0:limit])
+			result.append(short)
+	
+		return result
+
+	# Returns a list of tweets that matches any of the given patterns
+	@staticmethod
+	def match_any(tweets, patterns):
+		result = []
+		for tweet in tweets:
+			for pattern in patterns:
+				match = re.match(pattern, tweet)
+				if match:
+
+					# We only want the text that corresponds to where the award would be in the tweet (use group 1)
+					result.append(match.group(1))
+					break
+
+		return result
+
+	# Given a list of tweets, returns a Counter of all the words
+	@staticmethod
+	def count_words(tweets):
+		word_count = Counter()
+		for tweet in tweets:
+			word_count += Counter(tweet.split(' '))
+	
+		return word_count
+
+	# Given a list of words, filters a set of tweets to only include those words
+	@staticmethod
+	def filter_words(filter_words, tweets):
+		result = []
+		for tweet in tweets:
+			words = tweet.split(' ')
+			filtered = ' '.join([word for word in words if word in filter_words])
+			result.append(filtered)
+
+		return result
+
+
+	# Given a list of words, filters a set of tweets to remove those words (always includes empty words)
+	@staticmethod
+	def remove_words(to_remove, tweets):
+		result = []
+		for tweet in tweets:
+			words = tweet.split(' ')
+			filtered = ' '.join([word for word in words if word not in to_remove + ['']])
+			result.append(filtered)
+
+		return result
+
+	# Removes words with hashtags and empty words
+	@staticmethod
+	def remove_hashtags(tweets):
+		result = []
+		for tweet in tweets:
+			words = tweet.split(' ')
+			filtered = ' '.join([word for word in words if '#' not in word and word != ''])
+			result.append(filtered)
+
+		return result
+
+	# Returns a large list of broadly filtered tweets
+	def tweet_filter_broad(self):
+	
+		# Initialization
+		data = self.tweets
+
+		# Creating a copy of the data that will be parsed with lower quality
+		data_lq = data[:]
+
+		# Gathering all tweets that match a certain set of regex patterns
+		data_hq = self.match_any(data, self.patterns['exact'])
+		data_lq = self.match_any(data, self.patterns['ambiguous'])
+
+		# Shortening the tweets to 10 words, which should cover all of the 	award names
+		data_hq = self.shorten(data_hq)
+		data_lq = self.shorten(data_lq)
+
+		# Gathering a count of all words in the processed tweets
+		common = self.count_words(data_hq)
+
+		# Returning the 100 most common words as a list of strings
+		common = [word[0] for word in common.most_common(50)]
+
+		# Filtering tweets to contain only the most common words
+		data_hq = self.filter_words(common, data_hq)
+		data_lq = self.filter_words(common, data_lq)
+
+		# Recombining the sets
+		data = data_lq + data_hq
+
+		# Removing words that do not contribute semantic value
+		data = self.remove_words(['in', 'at', 'as', 'a', 'for'], data)
+
+		# Sorting the processed tweets
+		return Counter(data), data
+
+	# Returns a smaller list of more precisely filtered tweets
+	def tweet_filter_precise(self):
+
+		# Initialization, better name
+		data = self.tweets
+
+		# Matching to precise patterns
+		data = self.match_any(data, self.patterns['exact'])
+
+		# Shortening
+		data = self.shorten(data)
+
+		# Keeping only the 50 most common words
+		data = self.filter_words([word[0] for word in self.count_words(data).most_common(50)], data)	
+
+		# Removing words that do not contribute semantic value
+		data = self.remove_words(['in', 'is', 'at', 'as', 'a', 'for'], data)
+
+		# Sorting processed tweets
+		return Counter(data), data
+
+	# Given a set of tweets, returns a dicitonary containing all of the ngrams for each length n, where n is the set of dictionary keys
+	@staticmethod
+	def get_ngrams(tweets):
+
+		# Initialization
+		engrams = {}
+		n = 2
+		result = [None]
+	
+		# Continue building a dictionary of ngrams until we no longer get any results
+		while result:
+			result = []
+			for tweet in tweets:
+				for gram in ngrams(tweet.split(), n): result.append(gram)
+			engrams[n] = Counter(result)
+			n += 1
+
+		return engrams
+
+
+# Class representing a potential award category
 class Category():
 
-	def __init__(self, title, medium, genre):
+	def __init__(self, medium, role=None, genre=None):
 		self.title = title
 		self.medium = medium
 		self.genre = genre
 		self.score = 0
 
 
-# Actual category names
-real_categories = (
-                   [
-                   'motion picture drama',
-                   'motion picture animated',
-                   'motion picture musical or comedy',
-                   'motion picture foreign language',
-                   'director motion picture',
-                   'actor motion picture drama',
-                   'actor motion picture musical or comedy',
-                   'actress motion picture drama',
-                   'actress motion picture musical or comedy'
-                   'supporting actor motion picture',
-                   'supporting actress motion picture'
-                   'screenplay motion picture',
-                   'original score motion picture',
-                   'original song motion picture',
-                   'television series drama',
-                   'television series music or drama',
-                   'miniseries or motion picture television',
-                   'actor television series drama',
-                   'actor television series musical or comedy'
-                   'actor miniseries or motion picture television'
-                   'actress television series drama',
-                   'actress television series musical or comedy',
-                   'actress miniseries or motion picture television',
-                   'supporting actor television',
-                   'supporting actress television',
-                   'burnett lifetime achievement',
-                   'demill lifetime achievement'
-                   ]
-                   )
-
-# The most specific patterns, grab only text where the award precedes the string being identified. Allows us to know where to stop
-patterns_exact = [r'.*\b(best\b.*) goes to\b.*', r'.*\b(best\b.*) awarded to\b.*', r'.*\b(best\b.*) won by\b.*']
-
-# General Patterns
-patterns_specific = [r'.*\bnominated for (best\b.*)', r'.*\bw[io]ns? (best\b.*)', r'.*\bawarded (best\b.*)', r'.*\baward for (best\b.*)', r'.*\bawarded the (best\b.*)', r'.*\bwinner of (best\b.*)', r'.*\b(best\b.*)goes to\b.*', r'.*\b(best\b.*)awarded to\b.*', r'.*\b(best\b.*)won by\b.*']
-
-# The least specific patterns, will grab everything
-patterns_ambiguous = [r'.*\b(best\b.*)']
+	def __str__(self):
+		pass
 
 
-# Takes in a list of strings, returns a list of strings containing only alpha characters [a-z]
-def make_alpha(tweets):
-	return [re.sub(r'[^a-z -#]+', '', text.lower()) for text in tweets]
-
-# Reduce the number of words in each tweet (the beginning words should contain the award name)
-def shorten(tweets, limit=10):
-	result = []
-	for tweet in tweets:
-		words = tweet.split(' ')
-		short = ' '.join(words[0:limit])
-		result.append(short)
-
-	return result
-
-# Returns a list of tweets that matches any of the given patterns
-def match_any(tweets, patterns):
-	result = []
-	for tweet in tweets:
-		for pattern in patterns:
-			match = re.match(pattern, tweet)
-			if match:
-
-				# We only want the text that corresponds to where the award would be in the tweet (use group 1)
-				result.append(match.group(1))
-				break
-
-	return result
-
-# Given a list of tweets, returns a Counter of all the words
-def count_words(tweets):
-	word_count = Counter()
-	for tweet in tweets:
-		word_count += Counter(tweet.split(' '))
-
-	return word_count
-
-# Given a list of words, filters a set of tweets to only include those words
-def filter_words(filter_words, tweets):
-	result = []
-	for tweet in tweets:
-		words = tweet.split(' ')
-		filtered = ' '.join([word for word in words if word in filter_words])
-		result.append(filtered)
-
-	return result
-
-# Given a list of words, filters a set of tweets to remove those words
-def remove_words(to_remove, tweets):
-	result = []
-	for tweet in tweets:
-		words = tweet.split(' ')
-		filtered = ' '.join([word for word in words if word not in to_remove])
-		result.append(filtered)
-
-	return result
-
-def remove_hashtags(tweets):
-	result = []
-	for tweet in tweets:
-		words = tweet.split(' ')
-		filtered = ' '.join([word for word in words if '#' not in word])
-		result.append(filtered)
-
-	return result
+x = CategoryExtractor(load_tweets())
+print(x.find_genres(use_alternate=True))
 
 
-
-# Initial filtering process design, rudimentary
-def find_categories_v1(tweets=None):
-
-	# Initialization
-	data =  tweets if tweets else load_tweets()
-
-	# Cleaning the tweets by making them alpha and lowercase
-	data = make_alpha(data)
-
-	# Creating a copy of the data that will be parsed with lower quality
-	data_lq = data[:]
-
-	# Gathering all tweets that match a certain set of regex patterns
-	data_hq = match_any(data, patterns_exact)
-	data_lq = match_any(data, patterns_ambiguous)
-
-	# Shortening the tweets to 10 words, which should cover all of the award names
-	data_hq = shorten(data_hq)
-	data_lq = shorten(data_lq)
-
-	# Gathering a count of all words in the processed tweets
-	common = count_words(data_hq)
-
-	# Returning the 100 most common words as a list of strings
-	common = [word[0] for word in common.most_common(50)]
-
-	# Filtering tweets to contain only the most common words
-	data_hq = filter_words(common, data_hq)
-	data_lq = filter_words(common, data_lq)
-
-	# Recombining the sets
-	data = data_lq + data_hq
-
-	# Removing some words
-	data = remove_words(['in', 'at', 'as', 'a', 'for'], data)
-	data = remove_hashtags(data)
-
-	# Sorting the processed tweets, returning
-	return Counter(data), len(data)
-
-# Calculates the accuracy based on the real categories (hard-coded)
-def get_accuracy(preds, real=real_categories):
-	correct = []
-	missed = []
-	for category in real:
-		if category in preds:
-			correct.append(category)
-		else:
-			missed.append(category)
-
-	accuracy = len(correct) / (len(correct) + len(missed))
-
-	return accuracy, correct, missed
-
-
-def find_categories_v2(tweets=None):
-
-	data = tweets if tweets else load_tweets()
-	data = make_alpha(data)
-	data = remove_hashtags(data)
-	data = match_any(data, patterns_exact)
-	data = shorten(data)
-	data = filter_words([word[0] for word in count_words(data).most_common(50)], data)
-	data = remove_words(['in', 'at', 'as', 'a', 'for'], data)
-	return Counter(data)
-
-# Dev/Testing
-#categories, num_found = find_categories_v1()
-#print(get_accuracy(categories))
-
-#print(get_accuracy(find_categories_v2()))
+#for answer in load_answers(): print(answer)

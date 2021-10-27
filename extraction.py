@@ -11,7 +11,7 @@ def save_tweets(filename='tweets', raw_json='gg2013.json'):
     pickle.dump(data, test)
 
 
-def load_tweets(filename='tweets', num_tweets=-1):
+def load_tweets(filename='2013tweets', num_tweets=-1):
 	try:
 		with open(filename, 'rb') as tweets:
 

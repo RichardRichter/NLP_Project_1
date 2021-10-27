@@ -33,3 +33,5 @@ def get_ngrams(tweets):
 x = get_ngrams(tweets)
 print(x[2].most_common(20))
 print(x[3].most_common(20))
+
+for x in load_answers(): print(x)
