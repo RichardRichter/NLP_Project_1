@@ -18,9 +18,9 @@ class CategoryExtractor():
 			self.phrase = ' '.join(self.words)
 
 			# Scores in reference to role, medium, or genre determination
-			self.r = 0
-			self.m = 0
-			self.g = 0
+			self.r = 0.0
+			self.m = 0.0
+			self.g = 0.0
 
 			# Other scores, continually reset as metrics are tested
 			self.scores = [engram[1]]
@@ -31,6 +31,7 @@ class CategoryExtractor():
 
 		def __repr__(self):
 			return str(self)
+
 
 
 	def __init__(self, tweets):
@@ -52,74 +53,94 @@ class CategoryExtractor():
 		self.genres = []
 
 
+	def determine_components(self):
+
+		# Resetting
+		self.roles = []
+		self.mediums = []
+		self.genres = []
+
+		# Component Determination
+		for c in self.components:
+			scores = [c.r, c.m, c.g]
+			i = scores.index(max(scores))
+			if i == 0:
+				self.roles.append(c)
+			elif i == 1:
+				self.mediums.append(c)
+			else:
+				self.genres.append(c)
+
+		# Sorting
+		self.roles.sort(reverse=True, key=lambda r: r.r)
+		self.mediums.sort(reverse=True, key=lambda m: m.m)
+		self.genres.sort(reverse=True, key=lambda g: g.g)
+
+
 	# Find components that correspond to genres
-	def find_genres(self, use_alternate=False, limit=4):
-		exact = self.tweet_filter_precise()[0]
-		engrams = self.get_ngrams(exact, limit)
+	def score_components(self, tweets=None, limit=4):
+
+		#Getting the ngrams
+		engrams = self.get_ngrams(tweets, limit)
+
+		# Getting the potential components
 		components = []
+		if not self.components:
 
-		endings = Counter([tweet.split()[-1] for tweet in exact]).most_common(20)
+			# Taking ngrams with 2, 3, or 4 words, and finding those that dont begin with best. There are more likely to be genres because they are at the end.
+			for n in range(2, limit + 1):
+				components += [self.Component(engram) for engram in engrams[n].most_common(50) if engram[0][0] not in ['or'] and engram[0][-1] != 'or']
 
-		# Taking ngrams with 2, 3, or 4 words, and finding those that dont begin with best. There are more likely to be genres because they are at the end.
-		for n in range(2, limit + 1):
-			components += [self.Component(engram) for engram in engrams[n].most_common(50) if engram[0][0] not in ['or'] and engram[0][-1] != 'or']
+		else:
+			components = self.components
+
+		endings = Counter([tweet.split()[-1] for tweet in tweets]).most_common(20)
 
 		# Checking whether a component terminates at the end of the tweet
 		for component in components:
 			cstart = component.words[0]
 			cend = component.words[-1]
 			component.scores = [0, 0, 0]
-			for tweet in exact:
+			for tweet in tweets:
 				words = tweet.split()
 				tstart = words[0]
 				tend = words[-1]
 				if component.phrase in tweet:
 					component.freq += 1
 					if cstart == tstart and cend != tend:
-						component.r += 2
-						component.m += 1
-						component.g -= 2
+						component.scores[0] += 2
+						component.scores[1] += 1
+						component.scores[2] -= 2
 					elif cstart != tstart and cend == tend:
-						component.r -= 2
-						component.m += 1
-						component.g += 2
+						component.scores[0] -= 2
+						component.scores[1] += 1
+						component.scores[2] += 2
 					else:
-						component.r -= 1
-						component.m += 2
-						component.g -= 1
+						component.scores[0] -= 1
+						component.scores[1] += 2
+						component.scores[2] -= 1
 
+		components.sort(reverse=True, key=lambda x: x.freq)
+		freq_max = components[0].freq
 
-		# Scoring each component based on a combined metric of how many times it showed up and the proportion of appearances at the end
+		components = [component for component in components if component.freq > (0.1 * freq_max)]
 
-		'''
-		for component in components:
-			if use_alternate:
-				component.scores = (component.scores[1] * 0.3) + (component.scores[1] * (component.scores[1] / (sum(component.scores) + 1)))
-			else:
-				component.scores = (component.scores[1] - component.scores[0])
+		components.sort(reverse=True, key=lambda x: x.scores[0])
+		r_max = components[0].scores[0]
 
-		# Normalizing scores between -1 and 1
-		components.sort(reverse=True, key = lambda x: x.scores)
-		best = components[0]
-		for component in components:
-			component.g = round(component.scores / best.scores, 3)
+		components.sort(reverse=True, key=lambda x: x.scores[1])
+		m_max = components[0].scores[1]
 
-		# Sorting the components by their genre probability scores
-		components.sort(reverse=True, key = lambda x: x.g)
-		print(endings)
-		'''
+		components.sort(reverse=True, key=lambda x: x.scores[2])
+		g_max = components[0].scores[2]
 
-		components = [component for component in components if component.freq > 4]
+		for c in components:
+			c.r += round(c.scores[0] / r_max, 3)
+			c.m += round(c.scores[1] / m_max, 3)
+			c.g += round(c.scores[2] / g_max, 3)
 
-		components.sort(reverse=True, key=lambda x: x.r)
-		roles = components[:5]
-		components.sort(reverse=True, key=lambda x: x.m)
-		mediums = components[:5]
-		components.sort(reverse=True, key=lambda x: x.g)
-		genres = components[:5]
-
-
-		return roles, mediums, genres
+		self.components = components
+		return components
 
 
 	# Returns a list of n categories, ordered by highest probability
@@ -339,12 +360,15 @@ real_categories = [
 ]
 
 
-x = CategoryExtractor(load_tweets('2015tweets'))
-y = x.find_genres(use_alternate=False)
-for x in y:
-	print()
-	for z in x:
-		print(z)
+x = CategoryExtractor(load_tweets('2013tweets'))
+for t in [x.tweet_filter_precise()[1]]: x.score_components(t)
+x.determine_components()
+for z in x.roles: print(z)
+print()
+for z in x.mediums: print(z)
+print()
+for z in x.genres: print(z)
+print('\n', x.components)
 
 
 #for answer in load_answers(): print(answer)
