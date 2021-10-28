@@ -1,6 +1,4 @@
-import spacy
 import re
-import string
 from nltk import ngrams
 from collections import Counter
 from extraction import load_tweets, load_answers
@@ -32,6 +30,12 @@ class CategoryExtractor():
 		def __repr__(self):
 			return str(self)
 
+		# Sometimes there are issues with floating point numbers. Ensures that all scores are rounded to 3 decimals
+		def clean_scores(self):
+			self.r = round(self.r, 3)
+			self.m = round(self.m, 3)
+			self.g = round(self.g, 3)
+
 
 
 	def __init__(self, tweets):
@@ -53,6 +57,13 @@ class CategoryExtractor():
 		self.genres = []
 
 
+	# Cleaning the component scores
+	def clean_components(self):
+		for c in self.roles + self.mediums + self.genres:
+			c.clean_scores()
+
+
+	# Sort the components into their proper category location
 	def categorize_components(self):
 
 		# Resetting
@@ -75,6 +86,9 @@ class CategoryExtractor():
 		self.roles.sort(reverse=True, key=lambda r: r.r)
 		self.mediums.sort(reverse=True, key=lambda m: m.m)
 		self.genres.sort(reverse=True, key=lambda g: g.g)
+
+		# Fixing some floating point weirdness
+		self.clean_components()
 
 
 	# Score components based on a set of tweets
@@ -167,7 +181,7 @@ class CategoryExtractor():
 						new.append(cat)
 						self.categories.append(cat)
 			for genre in self.genres[:limit]:
-				cat = Category(medium, genre)
+				cat = Category(medium, genre=genre)
 				if cat not in self.categories:
 					new.append(cat)
 					self.categories.append(cat)
@@ -372,11 +386,11 @@ class Category():
 	# Output to a string that is serviceable for providing answers
 	def __str__(self):
 		if self.medium and self.role and self.genre:
-			return f'best performance by an {self.role} in a {self.medium} - {self.genre}'
+			return f'best performance by an {self.role.phrase} in a {self.medium.phrase} - {self.genre.phrase}'
 		elif not self.role:
-			return f'best {self.medium} - {self.genre}'
+			return f'best {self.medium.phrase} - {self.genre.phrase}'
 		else:
-			return f'best {self.role} - {self.medium}'
+			return f'best {self.role.phrase} - {self.medium.phrase}'
 
 	def __eq__(self, other):
 
@@ -428,9 +442,8 @@ print()
 for z in x.genres: print(z)
 print()
 x.extrapolate()
+print(x.categories)
 
-print([c for c in x.categories if not c.overlaps])
 
-
-#for answer in load_answers(): print(answer)
+for answer in load_answers(): print(answer)
 #for category in real_categories: print(category)
