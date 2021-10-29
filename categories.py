@@ -15,6 +15,7 @@ class CategoryExtractor():
 			# Text components of the ngram
 			self.words = [word for word in engram[0]]
 			self.phrase = ' '.join(self.words)
+			self.type = None
 
 			# Scores in reference to role, medium, or genre determination
 			self.r = 0.0
@@ -99,7 +100,8 @@ class CategoryExtractor():
 		self.components = with_best + without_best
 
 		# Cleaning up components after they've been scores, aggregating and deleting some
-		self.aggregate_components()
+		self.categorize_components()
+		replaced = self.aggregate_components()
 
 		# Categorizing the components based on their respective scores for r, m, and g.
 		self.categorize_components()
@@ -107,12 +109,18 @@ class CategoryExtractor():
 		# Extrapolating potential categories based on component combinations
 		self.extrapolate()
 
+		# Remove categories with overlapping components
+		self.categories = [c for c in self.categories if not c.overlaps]
+
 		# Scoring categories
 		self.score_categories(raw)
 
+		# Cleaning up the categories after scoring
+		self.aggregate_categories()
+
 		# Determining what to return
 		if return_type == 'category':
-			return self.answers(n)
+			return self.answers(n), replaced
 
 		elif return_type in ['string', 'str']:
 			return self.str_answers(n)
@@ -143,10 +151,13 @@ class CategoryExtractor():
 			i = scores.index(max(scores))
 			if i == 0:
 				self.roles.append(c)
+				c.type = self.roles
 			elif i == 1:
 				self.mediums.append(c)
+				c.type = self.mediums
 			else:
 				self.genres.append(c)
+				c.type = self.genres
 
 		# Sorting
 		self.roles.sort(reverse=True, key=lambda r: r.r)
@@ -192,21 +203,25 @@ class CategoryExtractor():
 				component.phrase = ' '.join(component.words)
 
 		new = []
+		replaced = []
 		for c in self.components:
 			
 			# A copy of this component already exists. Find which is better
 			try:
 				copy = new.pop(new.index(c))
-				if max([c.r, c.m, c.g]) > max([copy.r, copy.m, copy.g]):
+				if copy.type.index(copy) > c.type.index(c):
 					new.append(c)
+					replaced.append(copy)
 				else:
 					new.append(copy)
+					replaced.append(c)
 
 			# The component does not have a copy in the new list of components
 			except ValueError:
 				new.append(c)
 
 		self.components = new
+		return replaced
 
 
 	# Scores a set of components based on a set of tweets
@@ -277,7 +292,20 @@ class CategoryExtractor():
 		for category in self.categories:
 			for tweet in tweets:
 				if category.match_tweet(tweet):
-					category.tweet_score += 1
+					category.tweet_score += 2
+
+	# Cleaning up categories by removing those that share exactly the same keywords
+	def aggregate_categories(self):
+		cats = self.categories
+		for i, category in enumerate(cats):
+			others = cats[:i] + cats[i+1:]
+			for other in others:
+				if category.keywords == other.keywords:
+					if category.component_score > other.component_score:
+						self.categories.remove(other)
+					else:
+						self.categories.remove(category)
+
 
 	# Scores the current set of categories based on raw tweets (MUCH higher runtime)
 	def score_categories_raw(self):
@@ -289,7 +317,8 @@ class CategoryExtractor():
 		for category in self.categories:
 			for tweet in self.tweets:
 				if category.match_tweet(tweet):
-					category.tweet_score += 1
+					print(len(category.keywords))
+					category.tweet_score += (len(category.keywords) ^ 2)
 
 
 	# Returns a list of n categories, ordered by highest probability
@@ -510,6 +539,7 @@ class Category():
 		self.role = role
 		self.medium = medium
 		self.genre = genre
+		self.keywords = self.keywords()
 
 		# Score representing the probability of this category
 		self.component_score = self.score_components()
@@ -595,26 +625,55 @@ class Category():
 	# Returns a boolean value corresponding to whether the given tweet matches this category
 	def match_tweet(self, tweet):
 
+		if tweet.split()[0] == 'best':
+			tweet = ' '.join(tweet.split()[1:])
+
 		# Cant match against nonstrings
 		if not isinstance(tweet, str):
 			return False
 
-		# Determing what components we have to work with. 
+		# Determing what components we have to work with.
+		if self.role:
+			if tweet.startswith(self.role.phrase):
+				tweet.replace(self.role.phrase + ' ', '')
+			else:
+				return False
+
+		if self.genre:
+			if tweet.endswith(self.genre.phrase):
+				tweet.replace(' ' + self.genre.phrase, '')
+			else:
+				return False
+
+		if self.medium.phrase in tweet:
+			#print(self, ' | ', tweet)
+			return True
+		return False
+
+	def keywords(self):
+		keys = [w for w in self.medium.words]
+		keys += self.role.words if self.role else []
+		keys += self.genre.words if self.genre else []
+		keys.sort()
+		return keys
 
 
 
 # DEV AND TESTING
 
 x = CategoryExtractor(load_tweets('2013tweets'))
-answers = x.extract(n=50)
+answers, replaced = x.extract(n=50)
+'''
 for z in x.roles: print(z)
 print()
 for z in x.mediums: print(z)
 print()
 for z in x.genres: print(z)
 print()
-x.categories.sort(reverse=True, key=lambda c: c.component_score)
+'''
 for a in answers: print(a.__repr__())
+for a in answers[:27]:print(a)
+
 
 #for answer in load_answers(): print(answer)
 #for category in real_categories: print(category)
