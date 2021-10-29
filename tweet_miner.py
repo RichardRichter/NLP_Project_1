@@ -56,23 +56,43 @@ def main():
 
     categories = sorted(unsorted_categories, key=Category.category_words, reverse=True)
 
+    #tweets = extraction.load_tweets()
+    #for tweet in tweets:
+    #    for i in range(len(categories)):
+    #        cat = categories[i]
+    #        match_score = cat.match_score(tweet.lower())
+    #        if match_score >= 0.9:
+    #            is_relevant = True
+    #            if not cat.person:
+    #                for word in category.person_words:
+    #                    if word in tweet.lower():
+    #                        is_relevant = False
+    #            if is_relevant:
+    #                cat.relevant_tweets.append(tweet)
+    #                break
+    #        elif match_score >= 0.5:
+    #            cat.other_tweets.append(tweet)
     tweets = extraction.load_tweets()
     for tweet in tweets:
+        tweet = re.sub(r'RT[^:]+:', '', tweet)
+        tweet = re.sub(r'@', '', tweet)
+        best_cat = None
+        best_fit_ratio = 0
         for i in range(len(categories)):
             cat = categories[i]
             match_score = cat.match_score(tweet.lower())
-            if match_score >= 0.9:
-                is_relevant = True
-                if not cat.person:
-                    for word in category.person_words:
-                        if word in tweet.lower():
-                            is_relevant = False
-                if is_relevant:
-                    cat.relevant_tweets.append(tweet)
-                    break
-            elif match_score >= 0.5:
-                cat.other_tweets.append(tweet)
-
+            if match_score == 1.0:
+                cat.relevant_tweets.append(tweet)
+                break
+            if match_score == best_fit_ratio and not best_fit_ratio == 0:
+                if len(cat.keywords) > len(best_cat.keywords):
+                    best_cat = cat
+            elif match_score > best_fit_ratio:
+                best_cat = cat
+                best_fit_ratio = match_score
+        if best_fit_ratio > 0.5:
+            best_cat.other_tweets.append(tweet)
+            
     # counter = 1
     # for cat in categories:
     #     file_name = 'category' + str(counter) + '.txt'
