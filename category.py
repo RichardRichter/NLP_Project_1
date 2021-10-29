@@ -60,61 +60,155 @@ class Category:
         return counter / total_length
 
     # looks through tweets and updates self.presenters to be the list of presenters
-    def find_presenter(self):
-        if len(self.relevant_tweets) == 0:
-            self.relevant_tweets = self.other_tweets
-
-        nlp = spacy.load("en_core_web_sm", disable=['tok2vec', 'tagger', 'parser', 'attribute_ruler', 'lemmatizer'])
-        ppl = {}
-        pattern_better = re.compile(r'\bpresent\b')
-        pattern_worse = re.compile(r'\bannounced\b|\bintroduced\b')
-        for tweet in self.relevant_tweets:
-            # YOUR PROBLEM IS THIS STUPID TRUE FALSE STATEMENT
-            if pattern_better.search(tweet) is not None:
-                text = nlp(tweet)
-                for word in text.ents:
-                    if word.label_ == 'PERSON':
-                        person = word.text
-                        if person in ppl:
-                            ppl[person] = ppl[person] + 1
+    def find_presenters(self):
+            #PRINT
+            print(self.name)
+            #print(self.keywords)
+            nlp = spacy.load("en_core_web_sm", disable=['tok2vec', 'tagger', 'parser', 'attribute_ruler', 'lemmatizer'])
+            ppl = {}
+            pattern_better = re.compile(r'(\spresent\s|\spresents\s|\spresenting\s|\spresenter\s|\spresenters\s|\spresented\s|\spresentation\s|\spresenta\s)')
+            pattern_avoid = re.compile(r'(should|wish|want|need|desire|\bnot\b)')
+            pattern_exclude = re.compile(r'(Wins|RT @|RT|Congrats|Congradulations|Best)')
+            two_quick_pattern = re.compile(r'[^\s]+ [^\s]+ and [^\s]+ [^\s]+ (\spresent\s|\spresents\s|\spresenting\s|\spresenter\s|\spresenters\s|\spresented\s|\spresentation\s|\spresenta\s)')
+            one_quick_pattern = re.compile(r'[^\s]+ [^\s]+ (\spresent\s|\spresents\s|\spresenting\s|\spresenter\s|\spresenters\s|\spresented\s|\spresentation\s|\spresenta\s)')
+            for tweet in self.relevant_tweets:
+                if two_quick_pattern.search(tweet) or one_quick_pattern.search(tweet):
+                    #print(tweet)
+                    cap = (tweet.index(pattern_better.search(tweet).group(0)))
+                    sub_section_tweet = tweet[:cap]
+                    tweet_list = list(sub_section_tweet.split(" "))
+                    tags = nltk.pos_tag(tweet_list)
+                    targets = ["NNPS"]
+                    only_nnps = list(filter(lambda x:x[1] in targets, tags))
+                    for x in range(0,len(only_nnps)):
+                        person = only_nnps[x][0]
+                        person = person.replace('#', '')
+                        person = person.replace('@', '')
+                        #print(person)
+                        if " " in person and not pattern_exclude.search(person):
+                            if person[-2:] == "'s":
+                                person = person[:-2]
+                            if person in ppl:
+                                ppl[person] = ppl[person]+100
+                            else:
+                                ppl[person] = 100
+            print('you are in relevant tweets')
+            for tweet in self.relevant_tweets:
+                #print(tweet)
+                #print(pattern_better.search(tweet))
+                if pattern_better.search(tweet):
+                    if not pattern_avoid.search(tweet):
+                        #print(tweet)
+                        cap = (tweet.index(pattern_better.search(tweet).group(0)))
+                        sub_section_tweet = tweet[:cap]
+                        #print(sub_section_tweet)
+                        tweet_list = list(sub_section_tweet.split(" "))
+                        #tweet_list = list(tweet.split(" "))
+                        tags = nltk.pos_tag(tweet_list)
+                        targets = ["NNPS"]
+                        only_nnps = list(filter(lambda x:x[1] in targets, tags))
+                        #print("this is for nltk")
+                        for x in range(0,len(only_nnps)):
+                            #print(only_nnps[x][0])
+                            person = only_nnps[x][0]
+                            person = person.replace('#', '')
+                            person = person.replace('@', '')
+                            #print(person)
+                            if " " in person and not pattern_exclude.search(person):
+                                if person[-2:] == "'s":
+                                    person = person[:-2]
+                                if person in ppl:
+                                    ppl[person] = ppl[person]+10
+                                else:
+                                    ppl[person] = 10
+                        text = nlp(sub_section_tweet)
+                        #text = nlp(sub_section_tweet) 
+                        #print("this is for spacy")
+                        for word in text.ents:
+                            if word.label_ == 'PERSON':
+                                person = word.text
+                                person = person.replace('#', '')
+                                person = person.replace('@', '')
+                                if " " in person and not pattern_exclude.search(person):
+                                    if person[-2:] == "'s":
+                                        person = person[:-2]
+                                #print(person)
+                                    if person in ppl:
+                                        ppl[person] = ppl[person]+10
+                                    else:
+                                        ppl[person] = 10
+            if len(ppl) == 0:
+                print("you are in less relevant tweets")
+                for tweet in self.other_tweets:
+                    if pattern_better.search(tweet):
+                        if not pattern_avoid.search(tweet):
+                            print(tweet)
+                            cap = (tweet.index(pattern_better.search(tweet).group(0)))
+                            sub_section_tweet = tweet[:cap]
+                            #print(sub_section_tweet)
+                            tweet_list = list(sub_section_tweet.split(" "))
+                            tags = nltk.pos_tag(tweet_list)
+                            targets = ["NNPS"]
+                            only_nnps = list(filter(lambda x:x[1] in targets, tags))
+                            #print("this is for nltk")
+                            for x in range(0,len(only_nnps)):
+                                #print(only_nnps[x][0])
+                                person = only_nnps[x][0]
+                                person = person.replace('#', '')
+                                person = person.replace('@', '')
+                                #print(person)
+                                if " " in person and not pattern_exclude.search(person):
+                                    if person[-2:] == "'s":
+                                        person = person[:-2]
+                                    if person in ppl:
+                                        ppl[person] = ppl[person]+1
+                                    else:
+                                        ppl[person] = 1
+                            text = nlp(sub_section_tweet)
+                           # print("this is for spacy")
+                            for word in text.ents:
+                                if word.label_ == 'PERSON':
+                                    person = word.text
+                                    person = person.replace('#', '')
+                                    person = person.replace('@', '')
+                                    if " " in person and not pattern_exclude.search(person):
+                                        if person[-2:] == "'s":
+                                            person = person[:-2]
+                                    #print(person)
+                                        if person in ppl:
+                                            ppl[person] = ppl[person]+1
+                                        else:
+                                            ppl[person] = 1 
+                            
+            #print("ppl: ", ppl)        
+            if len(ppl) !=0:
+                if self.winner in ppl.keys():
+                        del ppl[self.winner]
+                for nominee in self.nominees:
+                    if nominee in ppl.keys():
+                        del ppl[nominee]
+                #print("ppl:", ppl)
+                sorted_dict = sorted([(value, key) for (key, value) in ppl.items()])
+                sorted_dict.sort(reverse=True)
+                (votes, definitive_presenter) = sorted_dict[0]
+                presenters = [definitive_presenter]
+                keep_searching = True
+                presenter_index = 1
+                while keep_searching and len(sorted_dict)>1:
+                    if len(presenters) < 2:
+                        (num_votes, potential_host) = sorted_dict[presenter_index]
+                        if float(num_votes) / votes > 0.6:
+                            presenters.append(potential_host)
+                            keep_searching = False
                         else:
-                            ppl[person] = 1
-                            # second_match = re.finditer(pattern_worse, tweet)
-            # if second_match:
-            #   text = nlp(tweet)
-            #  for word in text.ents:
-            #     if word.label_ == 'PERSON':
-            #        person = word.text
-            #       if person in ppl:
-            #          ppl[person] = ppl[person]+1
-            #     else:
-            #        ppl[person] = 1
-
-        if len(ppl) != 0:
-            sorted_dict = sorted([(value, key) for (key, value) in ppl.items()])
-            sorted_dict.sort(reverse=True)
-            (votes, definitive_presenter) = sorted_dict[0]
-            presenters = [definitive_presenter]
-            keep_searching = True
-            presenter_index = 1
-            while keep_searching and len(sorted_dict) > 1:
-                (num_votes, potential_host) = sorted_dict[presenter_index]
-                if float(num_votes) / votes > 0.8:
-                    presenters.append(potential_host)
-                    keep_searching = False
-                else:
-                    keep_searching = False
-                presenter_index += 1
-
-            self.presenters = presenters
-
-        # else:
-            # print("NA")
-        # print(count)
-        # if len(sorted_dict) !=0:
-        #    print(sorted_dict[0])
-        # else:
-        #    print("NA")
+                            keep_searching = False
+                        presenter_index += 1
+                print(sorted_dict)
+                #print(presenters)
+                self.presenters = presenters
+            else:
+                empty_list = ["NA"]
+                self.presenters = empty_list
 
     def extract_nominees(self):
         if self.person:
