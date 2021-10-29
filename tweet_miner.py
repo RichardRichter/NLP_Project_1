@@ -89,9 +89,9 @@ def main():
     overall_dict['award_data'] = {}
     # make each category find its presenters, nominees, and winners
     for cat in categories:
-        cat.find_presenter()
         cat.extract_nominees()
         cat.find_winner()
+        cat.find_presenters()
         overall_dict['award_data'][cat.name] = cat.output_self()
 
     output_file = open(str(YEAR)+'results.json', 'w', encoding='utf-8')
