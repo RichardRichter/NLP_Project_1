@@ -202,8 +202,36 @@ class CategoryExtractor():
 				component.words = component.words[1:]
 				component.phrase = ' '.join(component.words)
 
+		# Replacing TV with television (allowed by TA)
+		for component in self.components:
+			component.words = ['television' if word == 'tv' else word for word in component.words]
+			component.phrase = ' '.join(component.words)
+
+		# Determining the component type of each word
+		all_words = set([word for component in self.components for word in component.words])
+		all_words = [(word, [0,0,0]) for word in all_words]
+
+		all_role_words = Counter([word for component in self.roles[:20] for word in component.words])
+		all_medium_words = Counter([word for component in self.mediums[:20] for word in component.words])
+		all_genre_words = Counter([word for component in self.genres[:20] for word in component.words])
+
+		for word in all_words:
+			if word[0] in all_role_words:
+				word[1][0] = all_role_words[word[0]]
+			if word[0] in all_medium_words:
+				word[1][1] = all_medium_words[word[0]]
+			if word[0] in all_genre_words:
+				word[1][2] = all_genre_words[word[0]]
+
+
+		print(all_words, 'hehexd')
+
+
+
+
 		new = []
 		replaced = []
+		# Removing duplicates
 		for c in self.components:
 			
 			# A copy of this component already exists. Find which is better
@@ -292,7 +320,7 @@ class CategoryExtractor():
 		for category in self.categories:
 			for tweet in tweets:
 				if category.match_tweet(tweet):
-					category.tweet_score += 2
+					category.tweet_score += len(category.keywords) ** 3
 
 	# Cleaning up categories by removing those that share exactly the same keywords
 	def aggregate_categories(self):
@@ -305,20 +333,6 @@ class CategoryExtractor():
 						self.categories.remove(other)
 					else:
 						self.categories.remove(category)
-
-
-	# Scores the current set of categories based on raw tweets (MUCH higher runtime)
-	def score_categories_raw(self):
-		
-		# Sorting tweets to start with those that are most relevant
-		self.categories.sort(reverse=True, key=lambda c: c.component_score)
-
-		# Incrementing score for each match with raw tweets
-		for category in self.categories:
-			for tweet in self.tweets:
-				if category.match_tweet(tweet):
-					print(len(category.keywords))
-					category.tweet_score += (len(category.keywords) ^ 2)
 
 
 	# Returns a list of n categories, ordered by highest probability
@@ -657,22 +671,32 @@ class Category():
 		keys.sort()
 		return keys
 
+def get_categories(tweets, n=27):
+	extractor = CategoryExtractor(tweets)
+	return extractor.extract(n, return_type='str')
 
 
 # DEV AND TESTING
-
-x = CategoryExtractor(load_tweets('2013tweets'))
-answers, replaced = x.extract(n=50)
 '''
+x = CategoryExtractor(load_tweets('2013tweets'))
+answers = x.extract(n=50)
+
+
 for z in x.roles: print(z)
 print()
 for z in x.mediums: print(z)
 print()
 for z in x.genres: print(z)
 print()
-'''
 for a in answers: print(a.__repr__())
 for a in answers[:27]:print(a)
+
+print(x.get_acc())
+
+for answer in load_answers():print(answer)
+'''
+
+print(get_categories(load_tweets('2013tweets')))
 
 
 #for answer in load_answers(): print(answer)
