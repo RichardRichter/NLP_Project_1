@@ -9,15 +9,16 @@ import json
 
 # Super Important Values To Parameterize
 YEAR = 2015
-NUM_AWARDS = 26
+NUM_AWARDS = 25
 
 
 def main():
+    YEAR = sys.argv[1]
     # extract tweets
     extraction.save_tweets(raw_json='gg'+str(YEAR)+'.json')
     # run nathan's code to extract categories
     picture_drama = Category("Best Motion Picture - Drama")
-    picture_musical_or_comedy = Category("Best Motion Picture - Musical or Comedy")
+    picture_musical_or_comedy = Category("Best Motion Picture - Comedy or Musical")
     picture_director = Category("Best Director - Motion Picture")
     picture_actor_drama = Category("Best Performance by an Actor in a Motion Picture - Drama")
     picture_actor_comedy = Category("Best Performance by an Actor in a Motion Picture - Comedy Or Musical")
@@ -30,7 +31,7 @@ def main():
     picture_song = Category("Best Original Song - Motion Picture")
     picture_foreign = Category("Best Foreign Language Film")
     picture_animated = Category("Best Animated Feature Film")
-    picture_cecil = Category("Cecil B. DeMille Award for Lifetime Achievement in Motion Pictures")
+    picture_cecil = Category("Cecil B. DeMille Award")
     tv_drama = Category("Best Television Series - Drama")
     tv_comedy = Category("Best Television Series - Comedy Or Musical")
     tv_actor_drama = Category("Best Performance by an Actor In A Television Series - Drama")
@@ -56,43 +57,23 @@ def main():
 
     categories = sorted(unsorted_categories, key=Category.category_words, reverse=True)
 
-    #tweets = extraction.load_tweets()
-    #for tweet in tweets:
-    #    for i in range(len(categories)):
-    #        cat = categories[i]
-    #        match_score = cat.match_score(tweet.lower())
-    #        if match_score >= 0.9:
-    #            is_relevant = True
-    #            if not cat.person:
-    #                for word in category.person_words:
-    #                    if word in tweet.lower():
-    #                        is_relevant = False
-    #            if is_relevant:
-    #                cat.relevant_tweets.append(tweet)
-    #                break
-    #        elif match_score >= 0.5:
-    #            cat.other_tweets.append(tweet)
     tweets = extraction.load_tweets()
     for tweet in tweets:
-        tweet = re.sub(r'RT[^:]+:', '', tweet)
-        tweet = re.sub(r'@', '', tweet)
-        best_cat = None
-        best_fit_ratio = 0
         for i in range(len(categories)):
             cat = categories[i]
             match_score = cat.match_score(tweet.lower())
-            if match_score == 1.0:
-                cat.relevant_tweets.append(tweet)
-                break
-            if match_score == best_fit_ratio and not best_fit_ratio == 0:
-                if len(cat.keywords) > len(best_cat.keywords):
-                    best_cat = cat
-            elif match_score > best_fit_ratio:
-                best_cat = cat
-                best_fit_ratio = match_score
-        if best_fit_ratio > 0.5:
-            best_cat.other_tweets.append(tweet)
-            
+            if match_score >= 0.9:
+                is_relevant = True
+                if not cat.person:
+                    for word in category.person_words:
+                        if word in tweet.lower():
+                            is_relevant = False
+                if is_relevant:
+                    cat.relevant_tweets.append(tweet)
+                    break
+            elif match_score >= 0.5:
+                cat.other_tweets.append(tweet)
+
     # counter = 1
     # for cat in categories:
     #     file_name = 'category' + str(counter) + '.txt'
@@ -112,7 +93,7 @@ def main():
         cat.extract_nominees()
         cat.find_winner()
         cat.find_presenters()
-        overall_dict['award_data'][cat.name] = cat.output_self()
+        overall_dict['award_data'][cat.name.lower()] = cat.output_self()
 
     output_file = open(str(YEAR)+'results.json', 'w', encoding='utf-8')
     json.dump(overall_dict, output_file)
@@ -121,5 +102,5 @@ def main():
 if __name__ == "__main__":
     main()
 
-    
+
 
