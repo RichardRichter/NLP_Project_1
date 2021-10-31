@@ -111,7 +111,7 @@ class CategoryExtractor():
 
 		# Cleaning up components after they've been scores, aggregating and deleting some
 		print('aggregating components')
-		self.aggregate_components()
+		replaced = self.aggregate_components()
 
 		# Categorizing the components based on their respective scores for r, m, and g.
 		print('categorizing components')
@@ -123,6 +123,11 @@ class CategoryExtractor():
 		self.components = self.score_components(self.components, counts, remove_best=True)
 		self.components = self.score_components(self.components, raw, remove_best=True)
 		self.sort_components()
+
+		#self.roles = self.roles[:10]
+		self.mediums = self.mediums[:10]
+		self.genres = self.genres[:10]
+
 
 		# Another round of aggregation
 		print('more aggregation happening')
@@ -141,10 +146,14 @@ class CategoryExtractor():
 		print('aggregating categories')
 		self.aggregate_categories()
 
+		# Finding relevant tweets for each category to determine real names
+		print('extracting real category names')
+		#self.find_names(n)
+
 		# Determining what to return
 		print('gathering answers')
 		if return_type == 'category':
-			return self.answers(n)
+			return self.answers(n), replaced
 
 		elif return_type in ['string', 'str']:
 			return self.str_answers(n)
@@ -247,18 +256,20 @@ class CategoryExtractor():
 
 
 		# Scoring the words based on how often they show up in each component type
-		def scored_word_count(comps):
+		def scored_word_count(comps, weight=1):
 			counts = Counter()
 			for i, c in enumerate(comps):
 				for word in c.words:
-					counts[word] += 10 / (i+1) ** 1.8
+					counts[word] += 10 / (i+1) ** weight
 
 			for c in counts:
 				counts[c] = round(counts[c], 2)
 
 			return counts
 
-		role_words, medium_words, genre_words = (scored_word_count(x) for x in [self.roles, self.mediums, self.genres])
+		role_words = scored_word_count(self.roles, 1.)
+		medium_words = scored_word_count(self.mediums, 1.)
+		genre_words = scored_word_count(self.genres, 1.)
 
 		for word in all_words:
 			if word[0] in role_words:
@@ -325,14 +336,34 @@ class CategoryExtractor():
 
 			return initial
 
+		def remove_copies(l):
+			new = []
+			new_words = []
+			for c in l:
+				c_words = [word for word in c.words]
+				if c_words == ['musical', 'or', 'comedy']:
+					c_words.sort()
+					#print(c_words in new_words)
+					#print(new_words)
+				c_words.sort()
+				if c_words not in new_words:
+					new.append(c)
+					new_words.append(c_words)
+			return new
+
+		self.roles = remove_copies(self.roles)
+		self.mediums = remove_copies(self.mediums)
+		self.genres = remove_copies(self.genres)
+
+
 		for comp_type_master in [self.roles, self.mediums, self.genres]:
 			threshold = 0
 			if comp_type_master is self.roles:
 				threshold = 0.8
 			elif comp_type_master is self.mediums:
-				threshold = 0.2
+				threshold = 0.3
 			elif comp_type_master is self.genres:
-				threshold = 2
+				threshold = 0.4
 			comp_type = comp_type_master[:]
 			for i, c in enumerate(comp_type):
 				other_c = comp_type[:i] + comp_type[i+1:]
@@ -465,6 +496,23 @@ class CategoryExtractor():
 		
 		return new, len(self.categories) - initial
 
+
+	# Finding the actual category names that pertain to each category after scoring
+	def find_names(self, n=27):
+
+		# Sorting by tweet score
+		self.categories.sort(reverse=True, key=lambda c: c.tweet_score)
+
+		# Finding tweets
+		for i, category in enumerate(self.categories[:n]):
+			print(f'finding names for category {i} / {n}', end="\r", flush=True)
+			scores = Counter()
+			for tweet in self.tweet_filter_precise(remove_filler=False)[1]:
+				if category.match_tweet(tweet):
+					scores[tweet] += len(category.keywords)
+			category.names = scores.most_common()
+
+
 	# Returns some metrics about the accuracy of the model
 	def get_acc(self):
 		answers = load_answers()
@@ -561,7 +609,7 @@ class CategoryExtractor():
 		return result
 
 	# Returns a smaller list of more precisely filtered tweets
-	def tweet_filter_precise(self):
+	def tweet_filter_precise(self, remove_filler=True):
 
 		# Initialization, better name
 		data = self.tweets
@@ -572,11 +620,15 @@ class CategoryExtractor():
 		# Shortening
 		data = self.shorten(data)
 
+		# Replacing TV with Television (explicitly allowed by TA)
+		data =  [' '.join(['television' if word == 'tv' else word for word in tweet.split()]) for tweet in data]
+
 		# Keeping only the 50 most common words
 		data = self.filter_words([word[0] for word in self.count_words(data).most_common(50)], data)	
 
 		# Removing words that do not contribute semantic value
-		data = self.remove_words(['in', 'is', 'at', 'as', 'a', 'of', 'by', 'an', 'for', 'the', 'on', 'to', 'and'], data)
+		if remove_filler:
+			data = self.remove_words(['in', 'is', 'at', 'as', 'a', 'of', 'by', 'an', 'for', 'the', 'on', 'to', 'and'], data)
 
 		# Avoid tweets with only a single word remaining. Not possible
 		data = [t for t in data if len(t) > 1]
@@ -614,6 +666,7 @@ class Category():
 		self.medium = medium
 		self.genre = genre
 		self.keywords = self.keywords()
+		self.names = []
 
 		# Score representing the probability of this category
 		self.component_score = self.score_components()
@@ -744,7 +797,7 @@ def get_categories(tweets, n=27):
 
 if __name__ == "__main__":
 	x = CategoryExtractor(load_tweets('2015tweets'))
-	answers = x.extract(n=100)
+	answers, replaced = x.extract(n=40)
 	print()
 	for z in x.roles: print(z)
 	print()
@@ -761,3 +814,7 @@ if __name__ == "__main__":
 	for m in load_answers(): print(m)
 	print()
 	print(x.get_acc())
+
+	for a in answers[:27]: print(a, a.names[:3], "\n")
+
+	for r in replaced: print(r)
