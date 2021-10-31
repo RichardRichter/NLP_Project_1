@@ -1,4 +1,3 @@
-from os import remove
 import re
 from nltk import ngrams
 from collections import Counter
@@ -100,8 +99,7 @@ class CategoryExtractor():
 		self.components = with_best + without_best
 
 		# Cleaning up components after they've been scores, aggregating and deleting some
-		self.categorize_components()
-		replaced = self.aggregate_components()
+		self.aggregate_components()
 
 		# Categorizing the components based on their respective scores for r, m, and g.
 		self.categorize_components()
@@ -110,7 +108,7 @@ class CategoryExtractor():
 		self.extrapolate()
 
 		# Remove categories with overlapping components
-		self.categories = [c for c in self.categories if not c.overlaps]
+		#self.categories = [c for c in self.categories if not c.overlaps]
 
 		# Scoring categories
 		self.score_categories(raw)
@@ -120,7 +118,7 @@ class CategoryExtractor():
 
 		# Determining what to return
 		if return_type == 'category':
-			return self.answers(n), replaced
+			return self.answers(n)
 
 		elif return_type in ['string', 'str']:
 			return self.str_answers(n)
@@ -196,6 +194,9 @@ class CategoryExtractor():
 	# Aggregates components by resolving conflicts between duplicates
 	def aggregate_components(self):
 
+		# Components must be categorized before they can be aggregated, they will be categorized again after aggregation
+		self.categorize_components()
+
 		# Removing 'best' keyword
 		for component in self.components:
 			if component.words[0] == 'best':
@@ -207,26 +208,57 @@ class CategoryExtractor():
 			component.words = ['television' if word == 'tv' else word for word in component.words]
 			component.phrase = ' '.join(component.words)
 
-		# Determining the component type of each word
+		'''
+		# Gathering all words in components
 		all_words = set([word for component in self.components for word in component.words])
 		all_words = [(word, [0,0,0]) for word in all_words]
 
-		all_role_words = Counter([word for component in self.roles[:20] for word in component.words])
-		all_medium_words = Counter([word for component in self.mediums[:20] for word in component.words])
-		all_genre_words = Counter([word for component in self.genres[:20] for word in component.words])
+		# Scoring the words based on how often they show up in each component type
+		def scored_word_count(comps):
+			counts = Counter()
+			for i, c in enumerate(comps):
+				for word in c.words:
+					counts[word] += 10 / (i+1) ** 0.5
+
+			for c in counts:
+				counts[c] = round(counts[c], 2)
+
+			return counts
+
+		role_words, medium_words, genre_words = (scored_word_count(x) for x in [self.roles, self.mediums, self.genres])
 
 		for word in all_words:
-			if word[0] in all_role_words:
-				word[1][0] = all_role_words[word[0]]
-			if word[0] in all_medium_words:
-				word[1][1] = all_medium_words[word[0]]
-			if word[0] in all_genre_words:
-				word[1][2] = all_genre_words[word[0]]
+			if word[0] in role_words:
+				word[1][0] = role_words[word[0]]
+			if word[0] in medium_words:
+				word[1][1] = medium_words[word[0]]
+			if word[0] in genre_words:
+				word[1][2] = genre_words[word[0]]
 
+		# Sorting the words after scoring
+		role_words, medium_words, genre_words = [], [], []
+		for word in all_words:
+			best = word[1].index(max(word[1]))
+			if best == 0:
+				role_words.append(word[0])
+			elif best == 1:
+				medium_words.append(word[0])
+			elif best == 2:
+				genre_words.append(word[0])
 
-		print(all_words, 'hehexd')
+		# Removing words that don't belong in components of a certain type (roles contain only role words)
+		for c in self.components:
+			if c.type is self.roles:
+				c.words = [word for word in c.words if word in role_words]
+			elif c.type is self.mediums:
+				c.words = [word for word in c.words if word in medium_words]
+			elif c.type is self.genres:
+				c.words = [word for word in c.words if word in genre_words]
+			c.phrase = ' '.join(c.words)
 
+		self.components = [c for c in self.components if len(c.words) > 0]
 
+		'''
 
 
 		new = []
@@ -677,8 +709,7 @@ def get_categories(tweets, n=27):
 
 
 # DEV AND TESTING
-'''
-x = CategoryExtractor(load_tweets('2013tweets'))
+x = CategoryExtractor(load_tweets('2015tweets'))
 answers = x.extract(n=50)
 
 
@@ -694,9 +725,8 @@ for a in answers[:27]:print(a)
 print(x.get_acc())
 
 for answer in load_answers():print(answer)
-'''
 
-print(get_categories(load_tweets('2013tweets')))
+#print(get_categories(load_tweets('2013tweets')))
 
 
 #for answer in load_answers(): print(answer)
