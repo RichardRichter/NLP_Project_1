@@ -26,7 +26,7 @@ def get_awards(year):
     '''Awards is a list of strings. Do NOT change the name
     of this function or what it returns.'''
     # Your code here
-    awards = OUR_AWARDS
+    awards = categories.load_awards(year)
     return awards
 
 def get_nominees(year):
