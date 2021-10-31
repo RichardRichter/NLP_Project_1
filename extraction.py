@@ -1,17 +1,22 @@
 import json
 import pickle
 
-def save_tweets(filename='tweets', raw_json='gg2013.json'):
+def save_tweets(year, raw_json='gg2013.json'):
 
-  # Grabbing all of the necessary text data
-  data = [tweet['text'] for tweet in json.load(open(raw_json))]
+	filename = str(year) + 'tweets'
 
-  # Outputting the data to a pickle
-  with open(filename, 'wb') as test:
-    pickle.dump(data, test)
+	# Grabbing all of the necessary text data
+	data = [tweet['text'] for tweet in json.load(open(raw_json))]
+
+	# Outputting the data to a pickle
+	with open(filename, 'wb') as test:
+		pickle.dump(data, test)
 
 
-def load_tweets(filename='2013tweets', num_tweets=-1):
+def load_tweets(year):
+
+	filename = str(year) + 'tweets'
+
 	try:
 		with open(filename, 'rb') as tweets:
 
@@ -19,17 +24,19 @@ def load_tweets(filename='2013tweets', num_tweets=-1):
 			data = pickle.load(tweets, encoding='utf-8')
 	
 			# Returning the number of tweets we want
-			return data[0:(-1 if num_tweets > len(data) else num_tweets)]
+			return data
 
 	# If we can't find the file under filename, create it
 	except FileNotFoundError:
 		save_tweets(filename)
-		return load_tweets(filename, num_tweets)
+		return load_tweets(filename)
 
 
-def load_answers(year=2013):
+def load_answers(year):
+
 	if year not in [2013, 2015]:
 		return
+
 	else:
 		filename = str(year) + 'answers'
 

@@ -1,4 +1,5 @@
 import re
+import pickle
 from nltk import ngrams
 from collections import Counter
 from extraction import load_tweets, load_answers
@@ -175,7 +176,6 @@ class CategoryExtractor():
 		all_before = []
 		all_after = []
 		for t in tweets:
-			if 'performance' in t: print(t)
 			for c in self.categories:
 				if c.role is not None and c.role.phrase in t:
 					before, role, after = t.partition(c.role.phrase)
@@ -369,10 +369,6 @@ class CategoryExtractor():
 			new_words = []
 			for c in l:
 				c_words = [word for word in c.words]
-				if c_words == ['musical', 'or', 'comedy']:
-					c_words.sort()
-					#print(c_words in new_words)
-					#print(new_words)
 				c_words.sort()
 				if c_words not in new_words:
 					new.append(c)
@@ -816,14 +812,45 @@ class Category():
 		keys.sort()
 		return keys
 
+
 def get_categories(tweets, n=27):
 	extractor = CategoryExtractor(tweets)
 	return extractor.extract(n, return_type='str')
 
+def save_awards(year):
+
+	filename = str(year) + 'awards'
+
+	# Grabbing all of the necessary text data
+	data = get_categories(load_tweets(year))
+
+	# Outputting the data to a pickle
+	with open(filename, 'wb') as award_file:
+		pickle.dump(data, award_file)
+
+
+def load_awards(year):
+	
+	filename = str(year) + 'awards'
+
+	try:
+		with open(filename, 'rb') as awards:
+
+			# Loading the pickle
+			data = pickle.load(awards, encoding='utf-8')
+	
+			# Returning the number of tweets we want
+			return data
+
+	# If we can't find the file under filename, create it
+	except FileNotFoundError:
+		save_awards(year)
+		return load_awards(year)
+
 
 # DEV AND TESTING
-
 if __name__ == "__main__":
+	'''
 	x = CategoryExtractor(load_tweets('2015tweets'))
 	answers, replaced = x.extract(n=40)
 	print()
@@ -844,3 +871,5 @@ if __name__ == "__main__":
 	print(x.get_acc())
 	print(x.before_role.__repr__())
 	print(x.before_medium.__repr__())
+	'''
+	print(load_awards(2015))
