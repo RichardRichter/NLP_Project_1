@@ -1,0 +1,303 @@
+person_words = ['actor', 'director', 'actress']
+stop_words = ['-', 'in', 'a', 'by', 'an', 'or', 'made', 'for', 'performance', 'role', 'series']
+
+class Category:
+    def __init__(self, name):
+        self.name = name
+        self.nlp_name = ''
+        self.presenters = []
+        self.nominees = []
+        self.winner = ''
+        self.winner_polarity = 0
+        corrected_name = ' '.join(name.replace('-', ' ').split())
+        words = corrected_name.lower().split(' ')
+        self.keywords = [w for w in words if w not in stop_words]
+        self.relevant_tweets = []
+        self.other_tweets = []
+        self.person = False
+        for p in person_words:
+            if p in self.keywords:
+                self.person = True
+    def category_words(self):
+        return len(self.keywords)
+        
+    def match_score(self, tweet: str):
+        matched_words = 0
+        for word in self.keywords:
+            if word in tweet.lower():
+                matched_words += 1.0
+        return matched_words / len(self.keywords)
+    
+    def find_presenters(self):
+        print(self.name)
+        
+        nlp = spacy.load("en_core_web_sm", disable=['tok2vec', 'tagger', 'parser', 'attribute_ruler', 'lemmatizer'])
+        ppl = {}
+        
+        pattern_quickest = re.compile(r'\spresent the nominees\s')
+        pattern_present = re.compile(r'(\spresent\s|\spresents\s|\spresenting\s|\spresenter\s|\spresenters\s|\spresented\s|\spresentation\s)')
+        pattern_desire = re.compile(r'(\sshould\s|\swish\s|\swant\s|\sneed\s|\sdesire\s|\snot\s)')
+        pattern_exclude = re.compile(r'(wins|congrats|congradulations|best|:)')
+        print('you are in relevant tweets')     
+        for tweet in self.relevant_tweets:
+            if pattern_quickest.search(tweet):         
+                cap = (tweet.index(pattern_present.search(tweet).group(0)))
+                sub_tweet = tweet[:cap]
+                sub_tweet = re.sub(r',', ' comma ', sub_tweet)
+                sub_tweet_list = sub_tweet.split()
+                    #print(sub_tweet_list)
+                tags = nltk.pos_tag(sub_tweet_list)
+                    #print(tags)
+                list_of_names = []
+                potential_name = None
+                non_NNP_count = 0
+                for x in reversed(tags):
+                    (word, tag) = x
+                    if tag == 'NNP':
+                        non_NNP_count = 0
+                        if potential_name == None:
+                            potential_name = word
+                        else:
+                            potential_name = word+" "+potential_name
+                    else:
+                        non_NNP_count = non_NNP_count + 1
+                        if non_NNP_count > 2 and len(list_of_names) > 0:
+                            break
+                        if potential_name == None:
+                            continue
+                        else:
+                            list_of_names.append(potential_name)
+                            potential_name = None
+                if potential_name != None:
+                    list_of_names.append(potential_name)
+                for person in list_of_names:
+                    person = re.sub(r'[^a-z \-]+', '', person.lower())
+                    if person[-2:] == "'s":
+                        person = person[:-2]
+                    if " " in person and not pattern_exclude.search(person):
+                        if person in ppl:
+                            ppl[person] = ppl[person]+10
+                        else:
+                            ppl[person] = 10         
+
+        for tweet in self.relevant_tweets:
+            #print(pattern_present.search(tweet))
+            if pattern_present.search(tweet):
+                if not pattern_desire.search(tweet):
+                    cap = (tweet.index(pattern_present.search(tweet).group(0)))
+                    #text = nlp(tweet)
+                    sub_section_tweet = tweet[:cap]
+                    text = nlp(sub_section_tweet) 
+                    for word in text.ents:
+                        if word.label_ == 'PERSON':
+                            person = word.text
+                            person = person.replace('#', '')
+                            person = person.replace('@', '')
+                            person = re.sub(r'[^a-z \-]+', '', person.lower())
+                            if " " in person and not pattern_exclude.search(person):
+                                if person[-2:] == "'s":
+                                    person = person[:-2]
+                                if person in ppl:
+                                    #print(tweet)
+                                    ppl[person] = ppl[person]+10
+                                else:
+                                    #print(tweet)
+                                    ppl[person] = 10
+                    sub_tweet = tweet[:cap]
+                    sub_tweet = re.sub(r',', ' comma ', sub_tweet)
+                    sub_tweet_list = sub_tweet.split()
+                    #print(sub_tweet_list)
+                    tags = nltk.pos_tag(sub_tweet_list)
+                    #print(tags)
+                    list_of_names = []
+                    potential_name = None
+                    non_NNP_count = 0
+                    for x in reversed(tags):
+                        (word, tag) = x
+                        if tag == 'NNP':
+                            non_NNP_count = 0
+                            if potential_name == None:
+                                potential_name = word
+                            else:
+                                potential_name = word+" "+potential_name
+                        else:
+                            non_NNP_count = non_NNP_count + 1
+                            if non_NNP_count > 2 and len(list_of_names) > 0:
+                                break
+                            if potential_name == None:
+                                continue
+                            else:
+                                list_of_names.append(potential_name)
+                                potential_name = None
+                    if potential_name != None:
+                        list_of_names.append(potential_name)
+                    for person in list_of_names:
+                        person = re.sub(r'[^a-z \-]+', '', person.lower())
+                        if " " in person and not pattern_exclude.search(person):
+                            if person[-2:] == "'s":
+                                person = person[:-2]
+                            if person in ppl:
+                                ppl[person] = ppl[person]+10
+                            else:
+                                ppl[person] = 10
+        if len(ppl) == 0:
+            for tweet in self.other_tweets:
+                if pattern_present.search(tweet):
+                    if not pattern_desire.search(tweet):
+                        cap = (tweet.index(pattern_present.search(tweet).group(0)))
+                        sub_tweet = tweet[:cap]
+                        sub_tweet = re.sub(r',', ' comma ', sub_tweet)
+                        sub_tweet_list = sub_tweet.split()
+                        tags = nltk.pos_tag(sub_tweet_list)
+                        #print(tags)
+                        list_of_names = []
+                        potential_name = None
+                        non_NNP_count = 0
+                        for x in reversed(tags):
+                            (word, tag) = x
+                            if tag == 'NNP':
+                                non_NNP_count = 0
+                                if potential_name == None:
+                                    potential_name = word
+                                else:
+                                    potential_name = word+" "+potential_name
+                            else:
+                                non_NNP_count = non_NNP_count + 1
+                                if non_NNP_count > 2 and len(list_of_names) > 0:
+                                    break
+                                if potential_name == None:
+                                    continue
+                                else:
+                                    list_of_names.append(potential_name)
+                                    potential_name = None
+                        if potential_name != None:
+                            list_of_names.append(potential_name)
+                        for person in list_of_names:
+                            person = re.sub(r'[^a-z \-]+', '', person.lower())
+                            if " " in person and not pattern_exclude.search(person):
+                                if person[-2:] == "'s":
+                                    person = person[:-2]
+                                if person in ppl:
+                                    ppl[person] = ppl[person]+1
+                                else:
+                                    ppl[person] = 1               
+            for tweet in self.other_tweets:
+                if pattern_present.search(tweet):
+                    if not pattern_desire.search(tweet):
+                        #print(tweet)
+                        cap = (tweet.index(pattern_present.search(tweet).group(0)))
+                        sub_section_tweet = tweet[:cap]
+                        #text = nlp(tweet)
+                        text = nlp(sub_section_tweet)
+                        for word in text.ents:
+                            if word.label_ == 'PERSON':
+                                person = word.text
+                                person = person.replace('#', '')
+                                person = person.replace('@', '')
+                                person = re.sub(r'[^a-z \-]+', '', person.lower())
+                                if " " in person and not pattern_exclude.search(person):
+                                    if person[-2:] == "'s":
+                                        person = person[:-2]
+                                    if person in ppl:
+                                        #print(tweet)
+                                        ppl[person] = ppl[person] + 1
+                                    else:
+                                        #print(tweet)
+                                        ppl[person] = 1 
+                                        sub_tweet = tweet[:cap]
+        
+
+        #print("ppl: ", ppl)        
+        if len(ppl) !=0:
+            if self.winner in ppl.keys():
+                    del ppl[self.winner]
+            for nominee in self.nominees:
+                if nominee in ppl.keys():
+                    del ppl[nominee]
+            #print("ppl:", ppl)
+            sorted_dict = sorted([(value, key) for (key, value) in ppl.items()])
+            sorted_dict.sort(reverse=True)
+            (votes, definitive_presenter) = sorted_dict[0]
+            presenters = [definitive_presenter]
+            keep_searching = True
+            presenter_index = 1
+            while keep_searching and len(sorted_dict)>1:
+                if len(presenters) < 2:
+                    (num_votes, potential_host) = sorted_dict[presenter_index]
+                    if float(num_votes) / votes > 0.32:
+                        presenters.append(potential_host)
+                        keep_searching = False
+                    else:
+                        keep_searching = False
+                    presenter_index += 1
+            #print(sorted_dict)
+            print(presenters)
+            self.presenters = presenters
+        else:
+            print("NA")
+            empty_list = ["NA"]
+            self.presenters = empty_list
+        
+                    
+
+picture_director = Category("Best Director - Motion Picture")
+picture_drama = Category("Best Motion Picture - Drama")
+picture_actor_drama = Category("Best Actor in a Motion Picture - Drama")
+picture_actress_drama = Category("Best Actress in a Motion Picture - Drama")
+picture_musical_or_comedy = Category("Best Motion Picture - Musical or Comedy")
+picture_actor_comedy = Category("Best Actor in a Motion Picture - Comedy Or Musical")
+picture_actress_comedy = Category("Best Actress in a Motion Picture - Comedy Or Musical")
+picture_actor_supporting = Category("Best Supporting Actor - Motion Picture")
+picture_actress_supporting = Category("Best Supporting Actress - Motion Picture")
+picture_screen_play= Category("Best Screenplay")
+picture_score = Category("Best Original Score")
+picture_song = Category("Best Original Song")
+picture_foreign = Category("Best Foreign Language Film")
+picture_animated = Category("Best Animated Feature Film")
+picture_cecil = Category("Cecil B. DeMille Award for Lifetime Achievement in Motion Pictures")
+tv_drama = Category("Best Television Series - Drama")
+tv_actor_drama = Category("Best Actor In A Television Series - Drama")
+tv_actress_drama = Category("Best Actress In A Television Series - Drama")
+tv_comedy = Category("Best Television Series - Comedy Or Musical")
+tv_actor_comedy = Category("Best Actor In A Television Series - Comedy Or Musical")
+tv_actress_comedy = Category("Best Actress In A Television Series - Comedy Or Musical")
+tv_miniseries = Category("Best Mini-Series or Television Film")
+tv_miniseries_actor = Category("Best Actor - Mini-Series Television Film")
+tv_miniseries_actress = Category("Best Actress - Mini-series Television Film")
+tv_miniseries_actor_supporting = Category("Best Supporting Actor - Series, Mini-Series or Television Film")
+tv_miniseries_actress_supporting = Category("Best Supporting Actress - Series, Mini-Series or Television Film")
+
+unsorted_categories = [picture_drama, picture_musical_or_comedy, picture_director, picture_actor_drama,
+              picture_actor_comedy, picture_actress_drama, picture_actress_comedy, picture_actor_supporting,
+              picture_actress_supporting, picture_screen_play, picture_score, picture_song, picture_foreign,
+              picture_animated, picture_cecil, tv_drama, tv_comedy, tv_actor_drama, tv_actor_comedy,
+              tv_actress_drama, tv_actress_comedy, tv_miniseries, tv_miniseries_actor, tv_miniseries_actress,
+              tv_miniseries_actor_supporting, tv_miniseries_actress_supporting]
+
+categories = sorted(unsorted_categories, key=Category.category_words, reverse=True)
+
+tweets = load_tweets()
+punctuation_converter = re.compile(r'\.\w')
+
+for tweet in tweets:
+    tweet = re.sub(r'RT[^:]+:', '', tweet)
+    tweet = re.sub(r'@', '', tweet)
+    tweet = re.sub(r'\Shttps\S*', '', tweet)
+    if punctuation_converter.search(tweet):
+        tweet = tweet.replace('.', '. ')
+    best_cat = None
+    best_fit_ratio = 0
+    for i in range(len(categories)):
+        cat = categories[i]
+        match_score = cat.match_score(tweet.lower())
+        if match_score == 1.0:
+            cat.relevant_tweets.append(tweet)
+            break
+        if match_score == best_fit_ratio and not best_fit_ratio == 0:
+            if len(cat.keywords) > len(best_cat.keywords):
+                best_cat = cat
+        elif match_score > best_fit_ratio:
+            best_cat = cat
+            best_fit_ratio = match_score
+    if best_fit_ratio >= 0.5:
+        best_cat.other_tweets.append(tweet)
