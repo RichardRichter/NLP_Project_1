@@ -679,9 +679,8 @@ class Category:
 
             else:
                 self.winner = sorted_dict[0][1]
-    def find_polarity_score(self):
+    def find_polarity_score(self, tweets):
         winner = self.winner
-        tweets = load_tweets()
         neutral_count = 0
         neutral_list = []
         neutral_average = 0
@@ -725,6 +724,7 @@ class Category:
         if positive_count > neutral_count and positive_count > negative_count:
             if positive_average >= .66:
                 print("On average tweets mentioning ", winner, " were really positive")
+                print("For Example:")
                 #print an example tweet
                 for tweet in positive_list:
                   (tw,pol) = tweet
@@ -733,6 +733,7 @@ class Category:
                     break
             elif positive_average <.66 and positive_average >= .4:
                 print("On average tweets mentioning ", winner, " were relatively positive")
+                print("For Example:")
                 #print an example tweet
                 for tweet in positive_list:
                   (tw,pol) = tweet
@@ -741,7 +742,7 @@ class Category:
                     break
             else:
                 print("On average tweets mentioning ", winner, " were only somewhat positive")
-                #print an example tweet
+                print("For Example:")
                 for tweet in positive_list:
                   (tw,pol) = tweet
                   if pol < .4:
@@ -751,10 +752,10 @@ class Category:
             return positive_average
         if neutral_count > positive_count and neutral_count > negative_count:
             print("WOW on average the tweets mentioning ", winner, " were neutral?? On Twitter?? #Shocking")
-            #print an example tweet
-            for tweet in positive_list:
+             print("For Example:")
+            for tweet in neutral_list:
                   (tw,pol) = tweet
-                  if pol < 0.15 and pol > -0.15:
+                  if pol < 0.2 and pol > -0.2:
                     print(tw)
                     break
             self.winner_polarity = neutral_average
@@ -762,16 +763,28 @@ class Category:
         if negative_count > positive_count and negative_count > neutral_count:
             if negative_average <= -.66:
                 print("On average tweets mentioning ", winner, " were really negative")
-                #print an example tweet
-                print()
+                print("For Example:")
+                for tweet in negative_list:
+                  (tw,pol) = tweet
+                  if pol <= -.66:
+                    print(tw)
+                    break
             elif negative_average >-.66 and negative_average <= -.4:
                 print("On average tweets mentioning ", winner, " were relatively negative")
-                #print an example tweet
-                print()
+                print("For Example:")
+                for tweet in negative_list:
+                  (tw,pol) = tweet
+                  if pol <= -.4 and pol >-.66:
+                    print(tw)
+                    break
             else:
                 print("On average tweets mentioning ", winner, " were only somewhat negative")
-                #print an example tweet
-                print()
+                print("For Example:")
+                for tweet in negative_list:
+                  (tw,pol) = tweet
+                  if pol > -.4:
+                    print(tw)
+                    break
             self.winner_polarity = negative_average
             return negative_average
     def output_self(self):
