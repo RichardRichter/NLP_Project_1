@@ -59,11 +59,12 @@ def pre_ceremony():
     plain text file. It is the first thing the TA will run when grading.
     Do NOT change the name of this function or what it returns.'''
     # Saving tweets as python objects
-    extraction.save_tweets('tweets2013', 'gg2013.json')
-    extraction.save_tweets('tweets2015', 'gg2015.json')
+    extraction.save_tweets(2013, 'gg2013.json')
+    extraction.save_tweets(2015, 'gg2015.json')
     
     # Award Category Extraction
-    categories.get_categories()
+    categories.save_awards(2013)
+    categories.save_awards(2015)
     
     # Presenters, Winners, and Nominees
     tweet_miner.main(2013)
