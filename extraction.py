@@ -44,7 +44,3 @@ def load_answers(year=2013):
 		with open(filename, 'wb') as x:
 			pickle.dump(answers, x)
 		return load_answers()
-
-
-if __name__ == "__main__":
-		save_tweets('2018tweets', 'gg2018.json')
