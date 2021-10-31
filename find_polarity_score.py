@@ -38,9 +38,9 @@ def find_polarity_score(self):
     neutral_average = neutral_average / neutral_count
     negative_average = negative_average / negative_count
 
-    print(neutral_count)
-    print(negative_count)
-    print(positive_count)
+    #print(neutral_count)
+    #print(negative_count)
+    #print(positive_count)
 
     if positive_count > neutral_count and positive_count > negative_count:
         if positive_average >= .8:
@@ -55,11 +55,13 @@ def find_polarity_score(self):
             print("On average tweets mentioning ", winner, " were only somewhat positive")
             #print an example tweet
             print()
+        self.winner_polarity = positive_average
         return positive_average
     if neutral_count > positive_count and neutral_count > negative_count:
         print("WOW on average the tweets mentioning ", " ", " were neutral?? On Twitter?? #Shocking")
         #print an example tweet
         print()
+        self.winner_polarity = neutral_average
         return neutral_average
     if negative_count > positive_count and negative_count > neutral_count:
         if negative_average >= .8:
@@ -74,6 +76,7 @@ def find_polarity_score(self):
             print("On average tweets mentioning ", winner, " were only somewhat negative")
             #print an example tweet
             print()
+        self.winner_polarity = negative_average
         return negative_average
     #print(polarity_dictionary)
 #Most Liked Winner
