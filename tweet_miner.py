@@ -97,7 +97,26 @@ def main():
 
     output_file = open(str(YEAR)+'results.json', 'w', encoding='utf-8')
     json.dump(overall_dict, output_file)
+    
+    
+    #This is where we need to start making the Text File
+    #Hosts
+    with open('award.txt', 'w') as f:
+        for cat in categories:
+            f.write('Award: ', cat.name)
+            f.write('Winner: ', cat.winner) 
+            f.write('Presenters: '.join(cat.presenters))
+            f.write('Nominees" '.join(cat.nominees))
+            f.write('\n')
+            polarity_score =  cat.find_polarity_score(tweets)
+            polarity_dict[cat.winner] = polarity_score
+            f.write(f'{find_polarity_score(tweets)'}
+        sorted(polarity_dict, key=polarity_dict.get)
+        f.write(f'The least liked winner was {polarity_dict[0][1] with a polarity score of {polarity_dict[0][0]}\n')
+        sorted(polarity_dict, key=polarity_dict.get, reverse = True)
+        f.write(f'The most liked winner was {polarity_dict[0][1] with a polarity score of {polarity_dict[0][0]}\n')
 
+ 
 
 if __name__ == "__main__":
     main()
