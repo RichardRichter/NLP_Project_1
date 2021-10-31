@@ -85,6 +85,7 @@ def main():
     #     counter += 1
 
     overall_dict = dict()
+    polarity_dict = dict()
     # find the hosts first
     overall_dict['hosts'] = host_extract.find_host(tweets)
     overall_dict['award_data'] = {}
@@ -93,6 +94,8 @@ def main():
         cat.extract_nominees()
         cat.find_winner()
         cat.find_presenters()
+        polarity_score =  cat.find_polarity_score(tweets)
+        polarity_dict[cat.winner] = polarity_score
         overall_dict['award_data'][cat.name.lower()] = cat.output_self()
 
     output_file = open(str(YEAR)+'results.json', 'w', encoding='utf-8')
@@ -101,16 +104,14 @@ def main():
     
     #This is where we need to start making the Text File
     #Hosts
-    with open('award.txt', 'w') as f:
+    with open('"award"+YEAR+".txt"', 'w') as f:
         for cat in categories:
             f.write('Award: ', cat.name)
             f.write('Winner: ', cat.winner) 
             f.write('Presenters: '.join(cat.presenters))
             f.write('Nominees" '.join(cat.nominees))
             f.write('\n')
-            polarity_score =  cat.find_polarity_score(tweets)
-            polarity_dict[cat.winner] = polarity_score
-            f.write(f'{find_polarity_score(tweets)'}
+            f.write(f'Extra:'.join(cat.polarity_print_out))
         sorted(polarity_dict, key=polarity_dict.get)
         f.write(f'The least liked winner was {polarity_dict[0][1] with a polarity score of {polarity_dict[0][0]}\n')
         sorted(polarity_dict, key=polarity_dict.get, reverse = True)
