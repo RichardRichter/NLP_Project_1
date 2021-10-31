@@ -3,6 +3,7 @@ import spacy
 from spacy import displacy
 import rapidfuzz
 import nltk
+from textblob import TextBlob
 
 
 # GLOBAL VARIABLES (SAME FOR EVERY CATEGORY)
@@ -21,7 +22,6 @@ patterns_before = \
 
 buzz_words = ['nom', 'won', 'win', 'goes to', 'awarded', 'best']
 # define nlp here so we don't have to load it several times per function
-nlp = spacy.load("en_core_web_sm", disable=['tok2vec', 'tagger', 'parser', 'attribute_ruler', 'lemmatizer'])
 
 
 # Takes an ordered sorted dict, list of (votes, nominee) R
@@ -105,90 +105,80 @@ class Category:
         return counter / total_length
 
     # looks through tweets and updates self.presenters to be the list of presenters
-    def find_presenters(self):
-        print(self.name)
-        
-        #nlp is necessary for spacy to run
-        nlp = spacy.load("en_core_web_sm", disable=['tok2vec', 'tagger', 'parser', 'attribute_ruler', 'lemmatizer'])
+    def find_presenters(self, nlp):
         ppl = {}
-        
-        #I prioritize tweets that specificially say "present the nominees"
+
+        # I prioritize tweets that specificially say "present the nominees"
         pattern_quickest = re.compile(r'\spresent the nominees\s')
-        #Otherwise I use all present words, including one spansish (presenta), I found no need to include: Introducing/Announcing and variants of those two
-        pattern_present = re.compile(r'(\spresent\s|\spresents\s|\spresenting\s|\spresenter\s|\spresenters\s|\spresented\s|\spresentation\s|\spresenta\s)')
-        #I will make sure to exclude tweets that have desire terms (i.e. should have presented, needs to present, did not present)
+        # Otherwise I use all present words, including one spansish (presenta), I found no need to include: Introducing/Announcing and variants of those two
+        pattern_present = re.compile(
+            r'(\spresent\s|\spresents\s|\spresenting\s|\spresenter\s|\spresenters\s|\spresented\s|\spresentation\s|\spresenta\s)')
+        # I will make sure to exclude tweets that have desire terms (i.e. should have presented, needs to present, did not present)
         pattern_desire = re.compile(r'(\sshould\s|\swish\s|\swant\s|\sneed\s|\sdesire\s|\snot\s)')
-        #Considering the limits of spacy and nltk, I removed some key words that would be considered names that arent
+        # Considering the limits of spacy and nltk, I removed some key words that would be considered names that arent
         pattern_exclude = re.compile(r'(Wins|Congrats|Congradulations|Best)')
-       
-      
+
         for tweet in self.relevant_tweets:
-            tweet = tweet.replace('&amp', 'and')
-        for tweet in self.other_tweets:
-            tweet = tweet.replace('&amp', 'and')
-        
-        
-        for tweet in self.relevant_tweets:
-            if pattern_quickest.search(tweet):      
-                #this cap, helps me find the starting point of the presentation term, so I can create a substring that goes from the start to the presentation term
+            if pattern_quickest.search(tweet):
+                # this cap, helps me find the starting point of the presentation term, so I can create a substring that goes from the start to the presentation term
                 cap = (tweet.index(pattern_present.search(tweet).group(0)))
                 sub_tweet = tweet[:cap]
-                #Sometimes multiple names would be presented in a list seperated by commas and would then be considered one name
-                #to stop this from occuring, we are changing the "," to the word comma
+                # Sometimes multiple names would be presented in a list seperated by commas and would then be considered one name
+                # to stop this from occuring, we are changing the "," to the word comma
                 sub_tweet = re.sub(r',', ' comma ', sub_tweet)
-                #we make a list of the words in the sub_tweet, in order for nltk to tokenize
+                # we make a list of the words in the sub_tweet, in order for nltk to tokenize
                 sub_tweet_list = sub_tweet.split()
-                    #print(sub_tweet_list)
-                #this creates the tags for each word in the sub_tweet_list
+                # print(sub_tweet_list)
+                # this creates the tags for each word in the sub_tweet_list
                 tags = nltk.pos_tag(sub_tweet_list)
-                    #print(tags)
-                #list_of_names will contain potential presenter names to be funnelled into ppl
+                # print(tags)
+                # list_of_names will contain potential presenter names to be funnelled into ppl
                 list_of_names = []
                 potential_name = None
-                #If there are ever more than two words that are not names, we want to stop trying to find names (name and name is appropriate formatting)
+                # If there are ever more than two words that are not names, we want to stop trying to find names (name and name is appropriate formatting)
                 non_NNP_count = 0
-                #we go through the sub_tweet in reverse because we want to build up from where present was in the string.
+                # we go through the sub_tweet in reverse because we want to build up from where present was in the string.
                 for x in reversed(tags):
                     (word, tag) = x
-                    #NNP is what nltk considers proper pronouns / names
+                    # NNP is what nltk considers proper pronouns / names
                     if tag == 'NNP':
                         non_NNP_count = 0
                         if potential_name == None:
                             potential_name = word
                         else:
-                            #this helps make sure that our name is in proper order, firstname lastname
-                            potential_name = word+" "+potential_name
+                            # this helps make sure that our name is in proper order, firstname lastname
+                            potential_name = word + " " + potential_name
                     else:
                         non_NNP_count = non_NNP_count + 1
-                        #this makes sure that only a certain amount of names are pulled and that at least one name is pulled
+                        # this makes sure that only a certain amount of names are pulled and that at least one name is pulled
                         if non_NNP_count > 2 and len(list_of_names) > 0:
                             break
-                        #this makes sure that only NNP's are added to the list of names
+                        # this makes sure that only NNP's are added to the list of names
                         if potential_name == None:
                             continue
                         else:
                             list_of_names.append(potential_name)
                             potential_name = None
-                #If the first word in a tweet was a name, this ensures that name is captured after the forloop is done running
+                # If the first word in a tweet was a name, this ensures that name is captured after the forloop is done running
                 if potential_name != None:
                     list_of_names.append(potential_name)
-                #This is just standard practice to add people from list_of_names to ppl
+                # This is just standard practice to add people from list_of_names to ppl
                 for person in list_of_names:
                     if person[-2:] == "'s":
                         person = person[:-2]
                     if " " in person and not pattern_exclude.search(person) and "golden" not in person:
                         if person in ppl:
-                            ppl[person] = ppl[person]+10
+                            ppl[person] = ppl[person] + 10
                         else:
-                            ppl[person] = 10         
+                            ppl[person] = 10
 
         for tweet in self.relevant_tweets:
-            #print(pattern_present.search(tweet))
+            # print(pattern_present.search(tweet))
             if pattern_present.search(tweet):
                 if not pattern_desire.search(tweet):
                     cap = (tweet.index(pattern_present.search(tweet).group(0)))
                     text = nlp(tweet)
-                    #text = nlp(sub_section_tweet) 
+                    # text = nlp(sub_section_tweet)
                     for word in text.ents:
                         if word.label_ == 'PERSON':
                             person = word.text
@@ -198,17 +188,17 @@ class Category:
                                 if person[-2:] == "'s":
                                     person = person[:-2]
                                 if person in ppl:
-                                    #print(tweet)
-                                    ppl[person] = ppl[person]+10
+                                    # print(tweet)
+                                    ppl[person] = ppl[person] + 10
                                 else:
-                                    #print(tweet)
+                                    # print(tweet)
                                     ppl[person] = 10
                     sub_tweet = tweet[:cap]
                     sub_tweet = re.sub(r',', ' comma ', sub_tweet)
                     sub_tweet_list = sub_tweet.split()
-                    #print(sub_tweet_list)
+                    # print(sub_tweet_list)
                     tags = nltk.pos_tag(sub_tweet_list)
-                    #print(tags)
+                    # print(tags)
                     list_of_names = []
                     potential_name = None
                     non_NNP_count = 0
@@ -219,7 +209,7 @@ class Category:
                             if potential_name == None:
                                 potential_name = word
                             else:
-                                potential_name = word+" "+potential_name
+                                potential_name = word + " " + potential_name
                         else:
                             non_NNP_count = non_NNP_count + 1
                             if non_NNP_count > 2 and len(list_of_names) > 0:
@@ -236,7 +226,7 @@ class Category:
                             if person[-2:] == "'s":
                                 person = person[:-2]
                             if person in ppl:
-                                ppl[person] = ppl[person]+10
+                                ppl[person] = ppl[person] + 10
                             else:
                                 ppl[person] = 10
         if len(ppl) == 0:
@@ -248,7 +238,7 @@ class Category:
                         sub_tweet = re.sub(r',', ' comma ', sub_tweet)
                         sub_tweet_list = sub_tweet.split()
                         tags = nltk.pos_tag(sub_tweet_list)
-                        #print(tags)
+                        # print(tags)
                         list_of_names = []
                         potential_name = None
                         non_NNP_count = 0
@@ -259,7 +249,7 @@ class Category:
                                 if potential_name == None:
                                     potential_name = word
                                 else:
-                                    potential_name = word+" "+potential_name
+                                    potential_name = word + " " + potential_name
                             else:
                                 non_NNP_count = non_NNP_count + 1
                                 if non_NNP_count > 2 and len(list_of_names) > 0:
@@ -276,14 +266,14 @@ class Category:
                                 if person[-2:] == "'s":
                                     person = person[:-2]
                                 if person in ppl:
-                                    ppl[person] = ppl[person]+1
+                                    ppl[person] = ppl[person] + 1
                                 else:
-                                    ppl[person] = 1               
+                                    ppl[person] = 1
         if len(ppl) == 0:
             for tweet in self.other_tweets:
                 if pattern_present.search(tweet):
                     if not pattern_desire.search(tweet):
-                        #print(tweet)
+                        # print(tweet)
                         cap = (tweet.index(pattern_present.search(tweet).group(0)))
                         sub_section_tweet = tweet[:cap]
                         text = nlp(tweet)
@@ -296,26 +286,25 @@ class Category:
                                     if person[-2:] == "'s":
                                         person = person[:-2]
                                     if person in ppl:
-                                        #print(tweet)
+                                        # print(tweet)
                                         ppl[person] = ppl[person] + 1
                                     else:
-                                        #print(tweet)
-                                        ppl[person] = 1 
+                                        # print(tweet)
+                                        ppl[person] = 1
                                         sub_tweet = tweet[:cap]
-        
-       
-        if len(ppl) !=0:
+
+        if len(ppl) != 0:
             if self.winner in ppl.keys():
-                    del ppl[self.winner]
-            #print("ppl:", ppl)
-            newppl = {key, val for key,val in ppl.items() if self.rev_score(key) < .5}
+                del ppl[self.winner]
+            # print("ppl:", ppl)
+            newppl = {key: val for key, val in ppl.items() if self.rev_score(key) < .5}
             sorted_dict = sorted([(value, key) for (key, value) in newppl.items()])
             sorted_dict.sort(reverse=True)
             (votes, definitive_presenter) = sorted_dict[0]
             presenters = [definitive_presenter]
             keep_searching = True
             presenter_index = 1
-            while keep_searching and len(sorted_dict)>1:
+            while keep_searching and len(sorted_dict) > 1:
                 if len(presenters) < 2:
                     (num_votes, potential_host) = sorted_dict[presenter_index]
                     if float(num_votes) / votes > 0.6:
@@ -324,23 +313,21 @@ class Category:
                     else:
                         keep_searching = False
                     presenter_index += 1
-            print(sorted_dict)
-            #print(presenters)
+            # print(presenters)
             self.presenters = presenters
         else:
-            print("NA")
-            empty_list = ["NA"]
+            empty_list = []
             self.presenters = empty_list
 
-    def extract_nominees(self):
+    def extract_nominees(self, nlp):
         if self.person:
-            self.extract_people_nominees()
+            self.extract_people_nominees(nlp)
             self.extract_list_nominees()
         else:
             self.extract_list_nominees()
 
     # relies heavily on spacy
-    def extract_people_nominees(self):
+    def extract_people_nominees(self, nlp):
         ppl = {}
         for tweet in self.relevant_tweets:
             if any(word in tweet.lower() for word in buzz_words):
@@ -361,20 +348,22 @@ class Category:
                             # sometimes, spacy identifies person - show as a full name
                             if ' - ' in person:
                                 person = person[:person.index(' - ')]
+                            if ':' in person:
+                                person = person[:person.index(':')]
                             # get rid of trailing and leading white spaces, then lower case the name
                             person = person.strip().lower()
                             # person only valid if 25% or less of its words are part of category's keywords
                             if self.rev_score(person) <= 0.25:
                                 # ignore irregular names like firstlast or golden globes and the in middle of person
-                                if " " in person and "golden" not in person.lower() and " the " not in person.lower():
-                                        if person[-2:] == "'s":
-                                            person = person[:-2]
-                                        # this person already exists in the dictionary, so just increment the count
-                                        if person in ppl:
-                                            ppl[person] = ppl[person] + 1
-                                        # add the person to the dictionary
-                                        else:
-                                            ppl[person] = 1
+                                if " " in person and "golden" not in person and " the " not in person:
+                                    if person[-2:] == "'s":
+                                        person = person[:-2]
+                                    # this person already exists in the dictionary, so just increment the count
+                                    if person in ppl:
+                                        ppl[person] = ppl[person] + 1
+                                    # add the person to the dictionary
+                                    else:
+                                        ppl[person] = 1
 
         sorted_dict = sorted([(value, key) for (key, value) in ppl.items()])
         sorted_dict.sort(reverse=True)
@@ -421,10 +410,11 @@ class Category:
                             new_nom = new_nom[nom.index(':') + 1:]
                         if len(new_nom) > 2:
                             new_nom = new_nom.strip()
-                            if new_nom in confident_nominees:
-                                confident_nominees[new_nom] = confident_nominees[new_nom] + 1
-                            else:
-                                confident_nominees[new_nom] = 1
+                            if not self.person or ' ' in new_nom:
+                                if new_nom in confident_nominees:
+                                    confident_nominees[new_nom] = confident_nominees[new_nom] + 1
+                                else:
+                                    confident_nominees[new_nom] = 1
         # only check other_tweets if we didn't find list formats from relevant_tweets
         if not confident_nominees:
             for tweet in self.other_tweets:
@@ -476,6 +466,7 @@ class Category:
             sorted_dict.sort(reverse=True)
             # attempt to remove nominees that are substrings of other nominees (favor the more specific one)
             sorted_dict = remove_similar_entries(sorted_dict)
+
             if not self.person:
                 self.nominees = sorted_dict
             else:
@@ -508,10 +499,8 @@ class Category:
             filtered = {key: val for key, val in rule2.items() if self.rev_score(key) < 0.5 and val > 0}
             sorted_dict = sorted([(value, key) for (key, value) in filtered.items()])
             sorted_dict.sort(reverse=True)
-            for (votes1, nominee1) in sorted_dict:
-                for (votes2, nominee2) in sorted_dict:
-                    if nominee1 in nominee2 and nominee1 != nominee2:
-                        sorted_dict.remove((votes1, nominee1))
+
+            sorted_dict = remove_similar_entries(sorted_dict)
 
             if not self.person:
                 self.nominees = sorted_dict
@@ -566,7 +555,7 @@ class Category:
                             candidate = candidate[:candidate.index('from')]
                     if candidate.endswith(' goldenglobes'):
                         candidate = candidate[:-13]
-                    candidate = candidate.strip()
+                    candidate = candidate.strip().lower()
                     # candidate is 2 or less characters or ignore it as it's probably not useful
                     if len(candidate) <= 2:
                         break
@@ -601,7 +590,7 @@ class Category:
                                 candidate = candidate[:candidate.index('from')]
                         if candidate.endswith(' goldenglobes'):
                             candidate = candidate[:-13]
-                        candidate = candidate.strip()
+                        candidate = candidate.strip().lower()
                         if len(candidate) <= 2:
                             break
                         if self.person and ' ' not in candidate:
@@ -644,19 +633,38 @@ class Category:
             sorted_dict = sorted([(value, key) for (key, value) in candidate_frequencies.items()])
             sorted_dict.sort(reverse=True)
 
+            # if self.nominees:
+            #     matched_winner_to_nominee = False
+            #     winner_index = 0
+            #     top_nominee = self.nominees[0][1]
+            #     while not matched_winner_to_nominee:
+            #         winner = sorted_dict[winner_index][1]
+            #         # the top nominee is confirmed the winner so remove it
+            #         if rapidfuzz.fuzz.partial_ratio(winner, top_nominee) == 100:
+            #             del self.nominees[0]
+            #             matched_winner_to_nominee = True
+            #         winner_index += 1
+            #
+            #     self.winner = top_nominee
             if self.nominees:
-                matched_winner_to_nominee = False
-                winner_index = 0
-                top_nominee = self.nominees[0][1]
-                while not matched_winner_to_nominee:
-                    winner = sorted_dict[winner_index][1]
-                    # the top nominee is confirmed the winner so remove it
-                    if rapidfuzz.fuzz.partial_ratio(winner, top_nominee) == 100:
-                        del self.nominees[0]
-                        matched_winner_to_nominee = True
-                    winner_index += 1
+                if self.person:
+                    matched_winner_to_nominee = False
+                    winner_index = 0
+                    top_nominee = self.nominees[0][1]
+                    while not matched_winner_to_nominee:
+                        winner = sorted_dict[winner_index][1]
+                        # the top nominee is confirmed the winner so remove it
+                        if rapidfuzz.fuzz.partial_ratio(winner, top_nominee) == 100:
+                            del self.nominees[0]
+                            matched_winner_to_nominee = True
+                        winner_index += 1
 
-                self.winner = top_nominee
+                    self.winner = top_nominee
+
+                else:
+                    self.winner = sorted_dict[0][1]
+                    if rapidfuzz.fuzz.partial_ratio(self.winner, self.nominees[0][1]) == 100:
+                        del self.nominees[0]
 
             else:
                 self.winner = sorted_dict[0][1]
@@ -665,22 +673,46 @@ class Category:
             sorted_dict = sorted([(value, key) for (key, value) in nominees.items()])
             sorted_dict.sort(reverse=True)
 
-            if self.nominees:
-                matched_winner_to_nominee = False
-                winner_index = 0
-                top_nominee = self.nominees[0][1]
-                while not matched_winner_to_nominee:
-                    winner = sorted_dict[winner_index][1]
-                    # the top nominee is confirmed the winner so remove it
-                    if rapidfuzz.fuzz.partial_ratio(winner, top_nominee) == 100:
-                        del self.nominees[0]
-                        matched_winner_to_nominee = True
-                    winner_index += 1
+            # if self.nominees:
+            #     matched_winner_to_nominee = False
+            #     winner_index = 0
+            #     top_nominee = self.nominees[0][1]
+            #     while not matched_winner_to_nominee:
+            #         winner = sorted_dict[winner_index][1]
+            #         # the top nominee is confirmed the winner so remove it
+            #         if rapidfuzz.fuzz.partial_ratio(winner, top_nominee) == 100:
+            #             del self.nominees[0]
+            #             matched_winner_to_nominee = True
+            #         winner_index += 1
+            #
+            #     self.winner = top_nominee
+            #
+            # else:
+            #     self.winner = sorted_dict[0][1]
 
-                self.winner = top_nominee
+            if self.nominees:
+                if self.person:
+                    matched_winner_to_nominee = False
+                    winner_index = 0
+                    top_nominee = self.nominees[0][1]
+                    while not matched_winner_to_nominee:
+                        winner = sorted_dict[winner_index][1]
+                        # the top nominee is confirmed the winner so remove it
+                        if rapidfuzz.fuzz.partial_ratio(winner, top_nominee) == 100:
+                            del self.nominees[0]
+                            matched_winner_to_nominee = True
+                        winner_index += 1
+
+                    self.winner = top_nominee
+
+                else:
+                    self.winner = sorted_dict[0][1]
+                    if rapidfuzz.fuzz.partial_ratio(self.winner, self.nominees[0][1]) == 100:
+                        del self.nominees[0]
 
             else:
                 self.winner = sorted_dict[0][1]
+
     def find_polarity_score(self, tweets):
         winner = self.winner
         neutral_count = 0
@@ -698,97 +730,71 @@ class Category:
         for tweet in tweets:
             if winner in tweet:
                 blob1 = TextBlob(tweet)
-                #print(blob1.sentiment)
+                # print(blob1.sentiment)
                 (polarity, subjectivity) = blob1.sentiment
-                if polarity > -.2 and polarity < 0.2:
+                if -.1 < polarity < 0.1:
                     neutral_count += 1
-                    neutral_list.append((tweet,polarity))
+                    neutral_list.append((tweet, polarity))
                     neutral_average += polarity
-                elif polarity >= 0.2:
+                elif polarity >= 0.1:
                     positive_count += 1
-                    positive_list.append((tweet,polarity))
+                    positive_list.append((tweet, polarity))
                     positive_average += polarity
-                elif polarity <= -0.2:
+                elif polarity <= -0.1:
                     negative_count += 1
-                    negative_list.append((tweet,polarity))
+                    negative_list.append((tweet, polarity))
                     negative_average += polarity
-                #print(tweet)
-                #print(polarity)
-                #print(subjectivity)
-        positive_average = positive_average / positive_count
-        neutral_average = neutral_average / neutral_count
-        negative_average = negative_average / negative_count
+                # print(tweet)
+                # print(polarity)
+                # print(subjectivity)
+        if positive_count > 0:
+            positive_average = positive_average / positive_count
+        else:
+            positive_average = 0
+        if neutral_count > 0:
+            neutral_average = neutral_average / neutral_count
+        else:
+            neutral_average = 0
+        if negative_count > 0:
+            negative_average = negative_average / negative_count
+        else:
+            neutral_average = 0
 
-        #print(neutral_count)
-        #print(negative_count)
-        #print(positive_count)
+
+        # print(neutral_count)
+        # print(negative_count)
+        # print(positive_count)
 
         if positive_count > neutral_count and positive_count > negative_count:
             if positive_average >= .66:
-                polarity_print_out.append("On average tweets mentioning ", winner, " were really positive")
-                polarity_print_out.append("For Example:")
-                #print an example tweet
-                for tweet in positive_list:
-                  (tw,pol) = tweet
-                  if pol >= .66:
-                    polarity_print_out.append(tw)
-                    break
-            elif positive_average <.66 and positive_average >= .4:
-                polarity_print_out.append("On average tweets mentioning ", winner, " were relatively positive")
-                polarity_print_out.append("For Example:")
-                #print an example tweet
-                for tweet in positive_list:
-                  (tw,pol) = tweet
-                  if pol >= .4 and pol < 0.66:
-                    polarity_print_out.append(tw)
-                    break
+                self.polarity_print_out.append("On average tweets mentioning " + winner.title() + " were really positive")
+
+            elif .66 > positive_average >= .4:
+                self.polarity_print_out.append("On average tweets mentioning " + winner.title() + " were relatively positive")
+
             else:
-                polarity_print_out.append("On average tweets mentioning ", winner, " were only somewhat positive")
-                polarity_print_out.append("For Example:")
-                for tweet in positive_list:
-                  (tw,pol) = tweet
-                  if pol < .4:
-                    polarity_print_out.append(tw)
-                    break
+                self.polarity_print_out.append("On average tweets mentioning " + winner.title() + " were only somewhat positive")
+
             self.winner_polarity = positive_average
             return positive_average
         if neutral_count > positive_count and neutral_count > negative_count:
-            polarity_print_out.append("WOW on average the tweets mentioning ", winner, " were neutral?? On Twitter?? #Shocking")
-            polarity_print_out.append("For Example:")
-            for tweet in neutral_list:
-                  (tw,pol) = tweet
-                  if pol < 0.2 and pol > -0.2:
-                    polarity_print_out.append(tw)
-                    break
+            self.polarity_print_out.append("WOW on average the tweets mentioning " + winner.title() + " were neutral?? On Twitter?? #Shocking")
+
             self.winner_polarity = neutral_average
             return neutral_average
         if negative_count > positive_count and negative_count > neutral_count:
             if negative_average <= -.66:
-                polarity_print_out.append("On average tweets mentioning ", winner, " were really negative")
-                polarity_print_out.append("For Example:")
-                for tweet in negative_list:
-                  (tw,pol) = tweet
-                  if pol <= -.66:
-                    polarity_print_out.append(tw)
-                    break
-            elif negative_average >-.66 and negative_average <= -.4:
-                polarity_print_out.append("On average tweets mentioning ", winner, " were relatively negative")
-                polarity_print_out.append("For Example:")
-                for tweet in negative_list:
-                  (tw,pol) = tweet
-                  if pol <= -.4 and pol >-.66:
-                    polarity_print_out.append(tw)
-                    break
+                self.polarity_print_out.append("On average tweets mentioning " + winner.title() + " were really negative")
+
+            elif negative_average > -.66 and negative_average <= -.4:
+                self.polarity_print_out.append("On average tweets mentioning " + winner.title() + " were relatively negative")
+
             else:
-                polarity_print_out.append("On average tweets mentioning ", winner, " were only somewhat negative")
-                polarity_print_out.append("For Example:")
-                for tweet in negative_list:
-                  (tw,pol) = tweet
-                  if pol > -.4:
-                    polarity_print_out.append(tw)
-                    break
+                self.polarity_print_out.append("On average tweets mentioning " + winner.title() + " were only somewhat negative")
+
             self.winner_polarity = negative_average
             return negative_average
+
     def output_self(self):
         award_info = {}
         # presenters
