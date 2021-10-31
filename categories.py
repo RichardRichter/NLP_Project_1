@@ -251,7 +251,7 @@ class CategoryExtractor():
 			counts = Counter()
 			for i, c in enumerate(comps):
 				for word in c.words:
-					counts[word] += 10 / (i+1) ** 1.6
+					counts[word] += 10 / (i+1) ** 1.8
 
 			for c in counts:
 				counts[c] = round(counts[c], 2)
