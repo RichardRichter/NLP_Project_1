@@ -115,7 +115,7 @@ def main():
         sorted(polarity_dict, key=polarity_dict.get)
         f.write(f'The least liked winner was {polarity_dict[0][1] with a polarity score of {polarity_dict[0][0]}\n')
         sorted(polarity_dict, key=polarity_dict.get, reverse = True)
-        f.write(f'The most liked winner was {polarity_dict[0][1] with a polarity score of {polarity_dict[0][0]}\n')
+        f.write(f'The most liked winner was {polarity_dict[0][1]} with a polarity score of {polarity_dict[0][0]}\n')
 
  
 
