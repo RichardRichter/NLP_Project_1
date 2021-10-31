@@ -699,17 +699,17 @@ class Category:
                 blob1 = TextBlob(tweet)
                 #print(blob1.sentiment)
                 (polarity, subjectivity) = blob1.sentiment
-                if polarity == 0:
+                if polarity > -.2 and polarity < 0.2:
                     neutral_count += 1
-                    neutral_list.append(tweet)
+                    neutral_list.append((tweet,polarity))
                     neutral_average += polarity
-                elif polarity > 0:
+                elif polarity >= 0.2:
                     positive_count += 1
-                    positive_list.append(tweet)
+                    positive_list.append((tweet,polarity))
                     positive_average += polarity
-                elif polarity < 1:
+                elif polarity <= -0.2:
                     negative_count += 1
-                    negative_list.append(tweet)
+                    negative_list.append((tweet,polarity))
                     negative_average += polarity
                 #print(tweet)
                 #print(polarity)
@@ -726,21 +726,37 @@ class Category:
             if positive_average >= .66:
                 print("On average tweets mentioning ", winner, " were really positive")
                 #print an example tweet
-                print()
-            elif positive_average <.66 and positive_average >= .33:
+                for tweet in positive_list:
+                  (tw,pol) = tweet
+                  if pol >= .66:
+                    print(tw)
+                    break
+            elif positive_average <.66 and positive_average >= .4:
                 print("On average tweets mentioning ", winner, " were relatively positive")
                 #print an example tweet
-                print(positive_average)
+                for tweet in positive_list:
+                  (tw,pol) = tweet
+                  if pol >= .4 and pol < 0.66:
+                    print(tw)
+                    break
             else:
                 print("On average tweets mentioning ", winner, " were only somewhat positive")
                 #print an example tweet
-                print()
+                for tweet in positive_list:
+                  (tw,pol) = tweet
+                  if pol < .4:
+                    print(tw)
+                    break
             self.winner_polarity = positive_average
             return positive_average
         if neutral_count > positive_count and neutral_count > negative_count:
             print("WOW on average the tweets mentioning ", winner, " were neutral?? On Twitter?? #Shocking")
             #print an example tweet
-            print()
+            for tweet in positive_list:
+                  (tw,pol) = tweet
+                  if pol < 0.15 and pol > -0.15:
+                    print(tw)
+                    break
             self.winner_polarity = neutral_average
             return neutral_average
         if negative_count > positive_count and negative_count > neutral_count:
@@ -748,7 +764,7 @@ class Category:
                 print("On average tweets mentioning ", winner, " were really negative")
                 #print an example tweet
                 print()
-            elif negative_average >-.66 and negative_average <= -.33:
+            elif negative_average >-.66 and negative_average <= -.4:
                 print("On average tweets mentioning ", winner, " were relatively negative")
                 #print an example tweet
                 print()
