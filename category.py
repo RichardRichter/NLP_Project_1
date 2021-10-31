@@ -122,7 +122,11 @@ class Category:
         pattern_exclude = re.compile(r'(Wins|Congrats|Congradulations|Best)')
        
       
-        #print('you are in relevant tweets')   
+        for tweet in self.relevant_tweets:
+            tweet = tweet.replace('&amp', 'and')
+        for tweet in self.other_tweets:
+            tweet = tweet.replace('&amp', 'and')
+        
         
         for tweet in self.relevant_tweets:
             if pattern_quickest.search(tweet):      
@@ -172,7 +176,7 @@ class Category:
                 for person in list_of_names:
                     if person[-2:] == "'s":
                         person = person[:-2]
-                    if " " in person and not pattern_exclude.search(person):
+                    if " " in person and not pattern_exclude.search(person) and "golden" not in person:
                         if person in ppl:
                             ppl[person] = ppl[person]+10
                         else:
@@ -190,7 +194,7 @@ class Category:
                             person = word.text
                             person = person.replace('#', '')
                             person = person.replace('@', '')
-                            if " " in person and not pattern_exclude.search(person):
+                            if " " in person and not pattern_exclude.search(person) and "golden" not in person:
                                 if person[-2:] == "'s":
                                     person = person[:-2]
                                 if person in ppl:
@@ -228,7 +232,7 @@ class Category:
                     if potential_name != None:
                         list_of_names.append(potential_name)
                     for person in list_of_names:
-                        if " " in person and not pattern_exclude.search(person):
+                        if " " in person and not pattern_exclude.search(person) and "golden" not in person:
                             if person[-2:] == "'s":
                                 person = person[:-2]
                             if person in ppl:
@@ -268,7 +272,7 @@ class Category:
                         if potential_name != None:
                             list_of_names.append(potential_name)
                         for person in list_of_names:
-                            if " " in person and not pattern_exclude.search(person):
+                            if " " in person and not pattern_exclude.search(person) and "golden" not in person:
                                 if person[-2:] == "'s":
                                     person = person[:-2]
                                 if person in ppl:
@@ -288,7 +292,7 @@ class Category:
                                 person = word.text
                                 person = person.replace('#', '')
                                 person = person.replace('@', '')
-                                if " " in person and not pattern_exclude.search(person):
+                                if " " in person and not pattern_exclude.search(person) and "golden" not in person:
                                     if person[-2:] == "'s":
                                         person = person[:-2]
                                     if person in ppl:
@@ -299,16 +303,13 @@ class Category:
                                         ppl[person] = 1 
                                         sub_tweet = tweet[:cap]
         
-
-        #print("ppl: ", ppl)        
+       
         if len(ppl) !=0:
             if self.winner in ppl.keys():
                     del ppl[self.winner]
-            for nominee in self.nominees:
-                if nominee in ppl.keys():
-                    del ppl[nominee]
             #print("ppl:", ppl)
-            sorted_dict = sorted([(value, key) for (key, value) in ppl.items()])
+            newppl = {key, val for key,val in ppl.items() if self.rev_score(key) < .5}
+            sorted_dict = sorted([(value, key) for (key, value) in newppl.items()])
             sorted_dict.sort(reverse=True)
             (votes, definitive_presenter) = sorted_dict[0]
             presenters = [definitive_presenter]
