@@ -68,6 +68,7 @@ class Category:
         self.presenters = {}
         self.nominees = []
         self.winner = ''
+        self.winner_polarity = 0
         corrected_name = ' '.join(name.replace('-', ' ').split())
         words = corrected_name.lower().split(' ')
         self.keywords = [w for w in words if w not in stop_words]
