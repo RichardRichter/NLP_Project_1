@@ -49,6 +49,12 @@ class CategoryExtractor():
 			self.m = round(self.m, 3)
 			self.g = round(self.g, 3)
 
+		# Resets scores
+		def reset_score(self):
+			self.r = 0
+			self.m = 0
+			self.g = 0
+
 
 
 	def __init__(self, tweets):
@@ -82,41 +88,61 @@ class CategoryExtractor():
 	def extract(self, n=27, return_type='category'):
 
 		# Scoring potential components based on two set of filtered tweets
+		print('filtering tweets')
 		counts, raw = self.tweet_filter_precise()
 
 		# Getting components that contain best, scoring them
+		print('finding components (best included)')
 		with_best = self.find_components(counts)
 
+		print('scoring components (best included)')
 		with_best = self.score_components(with_best, counts)
 		with_best = self.score_components(with_best, raw)
 
 		# Getting components with best removed before being scores, scoring them
+		print('finding components (best excluded)')
 		without_best = self.find_components(counts, remove_best=True)
 
+		print('scoring components (best excluded)')
 		without_best = self.score_components(without_best, counts, remove_best=True)
 		without_best = self.score_components(without_best, raw, remove_best=True)
 
 		self.components = with_best + without_best
 
 		# Cleaning up components after they've been scores, aggregating and deleting some
+		print('aggregating components')
 		self.aggregate_components()
 
 		# Categorizing the components based on their respective scores for r, m, and g.
+		print('categorizing components')
 		self.categorize_components()
 
+		# Rescoring
+		print('rescoring')
+		for c in self.components: c.reset_score()
+		self.components = self.score_components(self.components, counts, remove_best=True)
+		self.components = self.score_components(self.components, raw, remove_best=True)
+		self.sort_components()
+
+		# Another round of aggregation
+		print('more aggregation happening')
+		self.aggregate_components_v2()
+
+
 		# Extrapolating potential categories based on component combinations
+		print('extrapolating components')
 		self.extrapolate()
 
-		# Remove categories with overlapping components
-		#self.categories = [c for c in self.categories if not c.overlaps]
-
 		# Scoring categories
+		print('scoring categories')
 		self.score_categories(raw)
 
 		# Cleaning up the categories after scoring
+		print('aggregating categories')
 		self.aggregate_categories()
 
 		# Determining what to return
+		print('gathering answers')
 		if return_type == 'category':
 			return self.answers(n)
 
@@ -158,16 +184,20 @@ class CategoryExtractor():
 				c.type = self.genres
 
 		# Sorting
-		self.roles.sort(reverse=True, key=lambda r: r.r)
-		self.mediums.sort(reverse=True, key=lambda m: m.m)
-		self.genres.sort(reverse=True, key=lambda g: g.g)
+		self.sort_components()
 
 		# Fixing some floating point weirdness
 		self.clean_components()
 
+	# Sorts the categories in order of their scores
+	def sort_components(self):
+		self.roles.sort(reverse=True, key=lambda r: r.r)
+		self.mediums.sort(reverse=True, key=lambda m: m.m)
+		self.genres.sort(reverse=True, key=lambda g: g.g)
+
 
 	# Finds a set of components for a set of tweets
-	def find_components(self, tweets, limit=4, remove_best=False):
+	def find_components(self, tweets, limit=3, remove_best=False):
 
 		# Getting the ngrams
 		engrams = self.get_ngrams(tweets, limit)
@@ -177,7 +207,7 @@ class CategoryExtractor():
 		for n in range(2, limit + 1):
 
 			# Taking ngrams with 2, 3, or 4 words, and finding those that dont begin with best. There are more likely to be genres because they are at the end.
-			components += [self.Component(engram) for engram in engrams[n].most_common(50) if engram[0][0] != 'or' and engram[0][-1] != 'or']
+			components += [self.Component(engram) for engram in engrams[n].most_common() if 'or' not in [engram[0][0], engram[0][-1]]]
 
 		# Removing 'best' keyword
 		if remove_best:
@@ -204,21 +234,24 @@ class CategoryExtractor():
 				component.phrase = ' '.join(component.words)
 
 		# Replacing TV with television (allowed by TA)
+		'''
 		for component in self.components:
 			component.words = ['television' if word == 'tv' else word for word in component.words]
 			component.phrase = ' '.join(component.words)
-
 		'''
+
+
 		# Gathering all words in components
 		all_words = set([word for component in self.components for word in component.words])
 		all_words = [(word, [0,0,0]) for word in all_words]
+
 
 		# Scoring the words based on how often they show up in each component type
 		def scored_word_count(comps):
 			counts = Counter()
 			for i, c in enumerate(comps):
 				for word in c.words:
-					counts[word] += 10 / (i+1) ** 0.5
+					counts[word] += 10 / (i+1) ** 1.6
 
 			for c in counts:
 				counts[c] = round(counts[c], 2)
@@ -258,8 +291,6 @@ class CategoryExtractor():
 
 		self.components = [c for c in self.components if len(c.words) > 0]
 
-		'''
-
 
 		new = []
 		replaced = []
@@ -284,6 +315,36 @@ class CategoryExtractor():
 		return replaced
 
 
+	# Second round of aggregation that occurs after rescoring
+	def aggregate_components_v2(self):
+
+		def logical_and(l):
+			initial = True
+			for item in l:
+				initial = initial and item
+
+			return initial
+
+		for comp_type_master in [self.roles, self.mediums, self.genres]:
+			threshold = 0
+			if comp_type_master is self.roles:
+				threshold = 0.8
+			elif comp_type_master is self.mediums:
+				threshold = 0.2
+			elif comp_type_master is self.genres:
+				threshold = 2
+			comp_type = comp_type_master[:]
+			for i, c in enumerate(comp_type):
+				other_c = comp_type[:i] + comp_type[i+1:]
+				contained_in = []
+				for other in other_c:
+					if logical_and([word in other.words for word in c.words]):
+						contained_in.append(other)
+				total_freq = sum(other.freq for other in contained_in)
+				if total_freq > (c.freq * threshold):
+					comp_type_master.remove(c)
+
+
 	# Scores a set of components based on a set of tweets
 	def score_components(self, components, tweets, remove_best=False):
 
@@ -296,6 +357,7 @@ class CategoryExtractor():
 
 		# Checking whether a component terminates at the end of the tweet
 		for component in components:
+			component.freq = 0
 			component.scores = [0, 0, 0]
 			for tweet in tweets:
 				if tweet.startswith(component.phrase):
@@ -316,10 +378,12 @@ class CategoryExtractor():
 
 
 		# Ensuring that we only show components with a frequency above a certain threshold
+		'''
 		components.sort(reverse=True, key=lambda x: x.freq)
 		freq_max = components[0].freq
 
 		components = [component for component in components if component.freq > (0.0 * freq_max)]
+		'''
 
 
 		# Grabbing max value for each component type
@@ -425,7 +489,7 @@ class CategoryExtractor():
 	# Takes in a list of strings, returns a list of strings containing only alpha characters [a-z]
 	@staticmethod
 	def make_alpha(tweets):
-		return [re.sub(r'[^a-z -#]+', '', text.lower()) for text in tweets]
+		return [re.sub(r'[^a-z #]+', '', text.lower()) for text in tweets]
 
 	# Reduce the number of words in each tweet (the beginning words should contain the award name)
 	@staticmethod
@@ -496,42 +560,6 @@ class CategoryExtractor():
 
 		return result
 
-	# Returns a large list of broadly filtered tweets
-	def tweet_filter_broad(self):
-	
-		# Initialization
-		data = self.tweets
-
-		# Creating a copy of the data that will be parsed with lower quality
-		data_lq = data[:]
-
-		# Gathering all tweets that match a certain set of regex patterns
-		data_hq = self.match_any(data, self.patterns['exact'])
-		data_lq = self.match_any(data, self.patterns['ambiguous'])
-
-		# Shortening the tweets to 10 words, which should cover all of the 	award names
-		data_hq = self.shorten(data_hq)
-		data_lq = self.shorten(data_lq)
-
-		# Gathering a count of all words in the processed tweets
-		common = self.count_words(data_hq)
-
-		# Returning the 100 most common words as a list of strings
-		common = [word[0] for word in common.most_common(50)]
-
-		# Filtering tweets to contain only the most common words
-		data_hq = self.filter_words(common, data_hq)
-		data_lq = self.filter_words(common, data_lq)
-
-		# Recombining the sets
-		data = data_lq + data_hq
-
-		# Removing words that do not contribute semantic value
-		data = self.remove_words(['in', 'at', 'as', 'a', 'for'], data)
-
-		# Sorting the processed tweets
-		return Counter(data), data
-
 	# Returns a smaller list of more precisely filtered tweets
 	def tweet_filter_precise(self):
 
@@ -548,7 +576,7 @@ class CategoryExtractor():
 		data = self.filter_words([word[0] for word in self.count_words(data).most_common(50)], data)	
 
 		# Removing words that do not contribute semantic value
-		data = self.remove_words(['in', 'is', 'at', 'as', 'a', 'of', 'by', 'an', 'for', 'the', 'on', 'to'], data)
+		data = self.remove_words(['in', 'is', 'at', 'as', 'a', 'of', 'by', 'an', 'for', 'the', 'on', 'to', 'and'], data)
 
 		# Avoid tweets with only a single word remaining. Not possible
 		data = [t for t in data if len(t) > 1]
@@ -680,19 +708,23 @@ class Category():
 
 		# Determing what components we have to work with.
 		if self.role:
-			if tweet.startswith(self.role.phrase):
-				tweet.replace(self.role.phrase + ' ', '')
+			if tweet == self.role.phrase:
+				return False
+			elif tweet.startswith(self.role.phrase):
+				tweet = tweet.replace(self.role.phrase + ' ', '')
 			else:
 				return False
 
 		if self.genre:
-			if tweet.endswith(self.genre.phrase):
-				tweet.replace(' ' + self.genre.phrase, '')
+			if tweet == self.genre.phrase:
+				return False
+			elif tweet.endswith(self.genre.phrase):
+				x = tweet
+				tweet = tweet.replace(' ' + self.genre.phrase, '')
 			else:
 				return False
 
 		if self.medium.phrase in tweet:
-			#print(self, ' | ', tweet)
 			return True
 		return False
 
@@ -709,25 +741,23 @@ def get_categories(tweets, n=27):
 
 
 # DEV AND TESTING
-x = CategoryExtractor(load_tweets('2015tweets'))
-answers = x.extract(n=50)
 
-
-for z in x.roles: print(z)
-print()
-for z in x.mediums: print(z)
-print()
-for z in x.genres: print(z)
-print()
-for a in answers: print(a.__repr__())
-for a in answers[:27]:print(a)
-
-print(x.get_acc())
-
-for answer in load_answers():print(answer)
-
-#print(get_categories(load_tweets('2013tweets')))
-
-
-#for answer in load_answers(): print(answer)
-#for category in real_categories: print(category)
+if __name__ == "__main__":
+	x = CategoryExtractor(load_tweets('2015tweets'))
+	answers = x.extract(n=100)
+	print()
+	for z in x.roles: print(z)
+	print()
+	for z in x.mediums: print(z)
+	print()
+	for z in x.genres: print(z)
+	print()
+	for a in answers: print(a.__repr__())
+	print()
+	for a in answers[:27]: print(a)
+	print()
+	for a in answers[27:]:print(a)
+	print()
+	for m in load_answers(): print(m)
+	print()
+	print(x.get_acc())
