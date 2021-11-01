@@ -3,6 +3,7 @@ import spacy
 from spacy import displacy
 import rapidfuzz
 import nltk
+nltk.download('averaged_perceptron_tagger')
 from textblob import TextBlob
 
 
@@ -106,15 +107,16 @@ class Category:
 
     # looks through tweets and updates self.presenters to be the list of presenters
     def find_presenters(self, nlp):
-        #print(self.name)
+        # print(self.name)
         ppl = {}
-        
+
         pattern_quickest = re.compile(r'\spresent the nominees\s')
-        pattern_present = re.compile(r'(\spresent\s|\spresents\s|\spresenting\s|\spresenter\s|\spresenters\s|\spresented\s|\spresentation\s|\spresenta\s)')
+        pattern_present = re.compile(
+            r'(\spresent\s|\spresents\s|\spresenting\s|\spresenter\s|\spresenters\s|\spresented\s|\spresentation\s|\spresenta\s)')
         pattern_desire = re.compile(r'(\sshould\s|\swish\s|\swant\s|\sneed\s|\sdesire\s|\snot\s)')
         pattern_exclude = re.compile(r'(wins|congrats|congradulations|best|:)')
         for tweet in self.relevant_tweets:
-            if pattern_quickest.search(tweet):         
+            if pattern_quickest.search(tweet):
                 cap = (tweet.index(pattern_present.search(tweet).group(0)))
                 sub_tweet = tweet[:cap]
                 sub_tweet = re.sub(r',', ' comma ', sub_tweet)
@@ -130,7 +132,7 @@ class Category:
                         if potential_name == None:
                             potential_name = word
                         else:
-                            potential_name = word+" "+potential_name
+                            potential_name = word + " " + potential_name
                     else:
                         non_NNP_count = non_NNP_count + 1
                         if non_NNP_count > 2 and len(list_of_names) > 0:
@@ -147,9 +149,9 @@ class Category:
                         person = person[:-2]
                     if " " in person and not pattern_exclude.search(person.lower()) and 'golden' not in person.lower():
                         if person in ppl:
-                            ppl[person] = ppl[person]+10
+                            ppl[person] = ppl[person] + 10
                         else:
-                            ppl[person] = 10         
+                            ppl[person] = 10
 
         for tweet in self.relevant_tweets:
             if pattern_present.search(tweet):
@@ -161,11 +163,12 @@ class Category:
                             person = word.text
                             person = person.replace('#', '')
                             person = person.replace('@', '')
-                            if " " in person and not pattern_exclude.search(person.lower()) and 'golden' not in person.lower():
+                            if " " in person and not pattern_exclude.search(
+                                    person.lower()) and 'golden' not in person.lower():
                                 if person[-2:] == "'s":
                                     person = person[:-2]
                                 if person in ppl:
-                                    ppl[person] = ppl[person]+10
+                                    ppl[person] = ppl[person] + 10
                                 else:
                                     ppl[person] = 10
                     sub_tweet = tweet[:cap]
@@ -182,7 +185,7 @@ class Category:
                             if potential_name == None:
                                 potential_name = word
                             else:
-                                potential_name = word+" "+potential_name
+                                potential_name = word + " " + potential_name
                         else:
                             non_NNP_count = non_NNP_count + 1
                             if non_NNP_count > 2 and len(list_of_names) > 0:
@@ -195,11 +198,12 @@ class Category:
                     if potential_name != None:
                         list_of_names.append(potential_name)
                     for person in list_of_names:
-                        if " " in person and not pattern_exclude.search(person.lower()) and 'golden' not in person.lower():
+                        if " " in person and not pattern_exclude.search(
+                                person.lower()) and 'golden' not in person.lower():
                             if person[-2:] == "'s":
                                 person = person[:-2]
                             if person in ppl:
-                                ppl[person] = ppl[person]+10
+                                ppl[person] = ppl[person] + 10
                             else:
                                 ppl[person] = 10
         if len(ppl) == 0:
@@ -211,7 +215,7 @@ class Category:
                         sub_tweet = re.sub(r',', ' comma ', sub_tweet)
                         sub_tweet_list = sub_tweet.split()
                         tags = nltk.pos_tag(sub_tweet_list)
-                        #print(tags)
+                        # print(tags)
                         list_of_names = []
                         potential_name = None
                         non_NNP_count = 0
@@ -222,7 +226,7 @@ class Category:
                                 if potential_name == None:
                                     potential_name = word
                                 else:
-                                    potential_name = word+" "+potential_name
+                                    potential_name = word + " " + potential_name
                             else:
                                 non_NNP_count = non_NNP_count + 1
                                 if non_NNP_count > 2 and len(list_of_names) > 0:
@@ -235,13 +239,14 @@ class Category:
                         if potential_name != None:
                             list_of_names.append(potential_name)
                         for person in list_of_names:
-                            if " " in person and not pattern_exclude.search(person.lower()) and 'golden' not in person.lower():
+                            if " " in person and not pattern_exclude.search(
+                                    person.lower()) and 'golden' not in person.lower():
                                 if person[-2:] == "'s":
                                     person = person[:-2]
                                 if person in ppl:
-                                    ppl[person] = ppl[person]+1
+                                    ppl[person] = ppl[person] + 1
                                 else:
-                                    ppl[person] = 1               
+                                    ppl[person] = 1
             for tweet in self.other_tweets:
                 if pattern_present.search(tweet):
                     if not pattern_desire.search(tweet):
@@ -253,21 +258,22 @@ class Category:
                                 person = word.text
                                 person = person.replace('#', '')
                                 person = person.replace('@', '')
-                                if " " in person and not pattern_exclude.search(person.lower()) and 'golden' not in person.lower():
+                                if " " in person and not pattern_exclude.search(
+                                        person.lower()) and 'golden' not in person.lower():
                                     if person[-2:] == "'s":
                                         person = person[:-2]
                                     if person in ppl:
                                         ppl[person] = ppl[person] + 1
                                     else:
-                                        ppl[person] = 1 
-                                        sub_tweet = tweet[:cap]    
-        if len(ppl) !=0:
+                                        ppl[person] = 1
+                                        sub_tweet = tweet[:cap]
+        if len(ppl) != 0:
             if self.winner.title() in ppl.keys():
-                    del ppl[self.winner.title()]
+                del ppl[self.winner.title()]
             newppl = {key: val for key, val in ppl.items() if self.rev_score(key) < .5}
             sorted_dict = sorted([(value, key) for (key, value) in newppl.items()])
         else:
-        	sorted_dict = []
+            sorted_dict = []
 
         if len(sorted_dict) != 0:
             sorted_dict.sort(reverse=True)
@@ -275,7 +281,7 @@ class Category:
             presenters = [definitive_presenter]
             keep_searching = True
             presenter_index = 1
-            while keep_searching and len(sorted_dict)>1:
+            while keep_searching and len(sorted_dict) > 1:
                 if len(presenters) < 2:
                     (num_votes, potential_host) = sorted_dict[presenter_index]
                     if float(num_votes) / votes > 0.6:
@@ -735,7 +741,7 @@ class Category:
         # print(negative_count)
         # print(positive_count)
 
-        if positive_count > neutral_count and positive_count > negative_count:
+        if positive_count >= neutral_count and positive_count >= negative_count:
             if positive_average >= .66:
                 self.polarity_print_out.append("On average tweets mentioning " + winner.title() + " were really positive")
 
@@ -747,12 +753,12 @@ class Category:
 
             self.winner_polarity = positive_average
             return positive_average
-        if neutral_count > positive_count and neutral_count > negative_count:
+        elif neutral_count >= positive_count and neutral_count >= negative_count:
             self.polarity_print_out.append("WOW on average the tweets mentioning " + winner.title() + " were neutral?? On Twitter?? #Shocking")
 
             self.winner_polarity = neutral_average
             return neutral_average
-        if negative_count > positive_count and negative_count > neutral_count:
+        elif negative_count >= positive_count and negative_count >= neutral_count:
             if negative_average <= -.66:
                 self.polarity_print_out.append("On average tweets mentioning " + winner.title() + " were really negative")
 

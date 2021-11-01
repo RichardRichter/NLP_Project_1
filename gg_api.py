@@ -79,6 +79,18 @@ def main():
     run when grading. Do NOT change the name of this function or
     what it returns.'''
     # Your code here
+    # pre_ceremony()
+    print("Printing human readable output for 2013 and 2015 into console\n")
+    print("These files also exist in .txt files in the form of award2013.txt and award2015.txt\n")
+    print("Here is 2013's readable format\n")
+    with open("award2013.txt", 'r', encoding="utf-8") as f:
+        lines = f.read()
+        print(lines)
+    print("Here is 2015's readable format\n")
+    with open("award2015.txt", 'r', encoding="utf-8") as f:
+        lines = f.read()
+        print(lines)
+    
     return
 
 if __name__ == '__main__':
