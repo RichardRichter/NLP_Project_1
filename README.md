@@ -1,6 +1,6 @@
 # NLP_Project_1
 
-<h3>Issues with requirements and en_core_web_sm:<h3>
+#Issues with requirements and en_core_web_sm:
 
 We used spacy for their named entity recognition, which requires the use of a package called en_core_web_sm. We found pip to be unreliable for installing this package consistently; usually it doesn't work. While we did include it in the requirements.txt, if necessary one should run:
 
@@ -8,7 +8,7 @@ We used spacy for their named entity recognition, which requires the use of a pa
 
 directly within the terminal or python environment, and it should install normally. 
 
-<h3>How to run our project:<h3>
+#How to run our project:
 
 We interpreted the directions such that the API's pre_ceremony function would be run first, followed by the autograder, followed by the API's main function. We were hesitant to change any of the parameters in the function signature, so we did processing for both 2013 and 2015 within pre_ceremony rather than doing it on a per year basis (which would require the addition of a 'year' parameter in the function signature). As such, if an additional year is to be tested, 3 function calls must be added in pre_ceremony for that year. These are (in order):
  - extraction.save_tweets(year, 'ggyear.json')
