@@ -14,6 +14,7 @@ We interpreted the directions such that the API's pre_ceremony function would be
  - extraction.save_tweets(year, 'ggyear.json')
  - categories.save_awards(year)
  - tweet_miner.main(year)
+
 These are required to allow the API to have access to answers for any given year. Our tweet_miner function automatically produces both a .json and human-readable .txt output. Consequently, our main function simply reads the text that is already outputted to the .txt file.
 
 Our program was designed to run in the following order:
