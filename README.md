@@ -4,7 +4,7 @@
 
 We used spacy for their named entity recognition, which requires the use of a package called en_core_web_sm. We found pip to be unreliable for installing this package consistently; usually it doesn't work. While we did include it in the requirements.txt, if necessary one should run:
 
-- 'python3 -m spacy download en_core_web_sm' 
+- python3 -m spacy download en_core_web_sm
 
 directly within the terminal or python environment, and it should install normally. 
 
