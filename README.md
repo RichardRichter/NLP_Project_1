@@ -18,6 +18,6 @@ We interpreted the directions such that the API's pre_ceremony function would be
 These are required to allow the API to have access to answers for any given year. Our tweet_miner function automatically produces both a .json and human-readable .txt output. Consequently, our main function simply reads the text that is already outputted to the .txt file.
 
 Our program was designed to run in the following order:
-- ggapi.pre_ceremony (We dont call this manually. We assumed that the grader would call it as it says in the description that it would be run first
+- ggapi.pre_ceremony (We dont call this manually. We assumed that the grader would call this on their own as it says in the description that it would be run first. It is imperative that this function be called before the autograder is run, or before any calls to the other API functions are made)
 - autograder (Should be run for all years)
 - ggapi.main
