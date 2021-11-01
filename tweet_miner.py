@@ -11,14 +11,11 @@ import re
 
 # Super Important Values To Parameterize
 YEAR = 2015
-NUM_AWARDS = 25
 
 
-def main():
-    YEAR = sys.argv[1]
-    # extract tweets
-    extraction.save_tweets(raw_json='gg'+str(YEAR)+'.json')
-    # run nathan's code to extract categories
+def main(year_num):
+    YEAR = year_num
+
     picture_drama = Category("Best Motion Picture - Drama")
     picture_musical_or_comedy = Category("Best Motion Picture - Comedy or Musical")
     picture_director = Category("Best Director - Motion Picture")
@@ -59,7 +56,7 @@ def main():
 
     categories = sorted(unsorted_categories, key=Category.category_words, reverse=True)
 
-    tweets = extraction.load_tweets()
+    tweets = extraction.load_tweets(YEAR)
     for tweet in tweets:
         tweet = re.sub(r'RT[^:]+:', '', tweet)
         tweet = re.sub(r'@', '', tweet)
@@ -178,7 +175,7 @@ def main():
     output_file = open(str(YEAR)+'results.json', 'w', encoding='utf-8')
     json.dump(overall_dict, output_file)
 
-    with open("award"+YEAR+".txt", 'w', encoding='utf-8') as f:
+    with open("award"+str(YEAR)+".txt", 'w', encoding='utf-8') as f:
         f.write('Host: ' + ', '.join(overall_dict['hosts']).title() + '\n\n')
         for cat in categories:
             f.write('Award: ' + cat.name + '\n')
@@ -194,19 +191,18 @@ def main():
                     break
             f.write('Nominees: ' + ', '.join(nominee_list).title() + '\n')
             f.write('\n')
-            f.write('Extra: ' + '\n'.join(cat.polarity_print_out))
+            f.write('Extra: ' + '\n'.join(cat.polarity_print_out) + '\n\n')
 
         # sorted_dict = sorted([(value, key) for (key, value) in newppl.items()])
         pd2 = sorted([(value, key) for (key, value) in polarity_dict.items()])
-        p1 = 'The least liked winner was ' + pd2[0][1].title() + ' with a polarity score of ' + str(pd2[0][0] + '\n')
+        p1 = 'The least liked winner was ' + str(pd2[0][1]).title() + ' with a polarity score of ' + str(pd2[0][0]) + '\n'
         f.write(p1)
-        p2 = 'The most liked winner was' + pd2[-1][1].title() + 'with a polarity score of ' + str(pd2[-1][0] + '\n')
+        p2 = 'The most liked winner was' + str(pd2[-1][1]).title() + 'with a polarity score of ' + str(pd2[-1][0]) + '\n'
         f.write(p2)
-        f.write('\n\n')
 
 
 if __name__ == "__main__":
-    main()
+    main(sys.argv[1])
 
 
 
