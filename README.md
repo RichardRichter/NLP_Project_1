@@ -1,4 +1,4 @@
-# NLP_Project_1
+# Natural Language Processing: Award Ceremony Extraction
 
 <h2>Issues with requirements and en_core_web_sm:</h2>
 
